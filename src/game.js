@@ -10,76 +10,127 @@ class WorldScene extends Phaser.Scene {
   }
 
   create() {
-    const worldPixelWidth = WORLD.width * WORLD.tileSize;
-    const worldPixelHeight = WORLD.height * WORLD.tileSize;
+  const worldPixelWidth = WORLD.width * WORLD.tileSize;
+  const worldPixelHeight = WORLD.height * WORLD.tileSize;
 
-    this.cameras.main.setBounds(
-      0,
-      0,
-      worldPixelWidth,
-      worldPixelHeight
-    );
+  const camera = this.cameras.main;
 
-    this.drawWorld();
+  camera.setBounds(
+    0,
+    0,
+    worldPixelWidth,
+    worldPixelHeight
+  );
 
-    this.cameras.main.centerOn(
-      worldPixelWidth / 2,
-      worldPixelHeight * 0.72
-    );
+  this.drawWorld();
 
-    this.cameras.main.setZoom(0.8);
+  camera.centerOn(
+    worldPixelWidth / 2,
+    worldPixelHeight * 0.72
+  );
 
-    this.input.on("pointerdown", (pointer) => {
-      this.isDragging = true;
-      this.lastPointerX = pointer.x;
-      this.lastPointerY = pointer.y;
-    });
+  camera.setZoom(0.8);
 
-    this.input.on("pointerup", () => {
+  let previousPinchDistance = null;
+
+  this.input.on("pointerdown", (pointer) => {
+    if (this.input.pointer1.isDown && this.input.pointer2.isDown) {
       this.isDragging = false;
-    });
+      return;
+    }
 
-    this.input.on("pointerupoutside", () => {
+    this.isDragging = true;
+    this.lastPointerX = pointer.x;
+    this.lastPointerY = pointer.y;
+  });
+
+  this.input.on("pointerup", () => {
+    this.isDragging = false;
+
+    if (
+      !this.input.pointer1.isDown ||
+      !this.input.pointer2.isDown
+    ) {
+      previousPinchDistance = null;
+    }
+  });
+
+  this.input.on("pointerupoutside", () => {
+    this.isDragging = false;
+    previousPinchDistance = null;
+  });
+
+  this.input.on("pointermove", (pointer) => {
+    const pointer1 = this.input.pointer1;
+    const pointer2 = this.input.pointer2;
+
+    // Two-finger pinch zoom
+    if (pointer1.isDown && pointer2.isDown) {
       this.isDragging = false;
-    });
 
-    this.input.on("pointermove", (pointer) => {
-      if (!this.isDragging) {
-        return;
-      }
+      const distance = Phaser.Math.Distance.Between(
+        pointer1.x,
+        pointer1.y,
+        pointer2.x,
+        pointer2.y
+      );
 
-      const camera = this.cameras.main;
+      if (previousPinchDistance !== null) {
+        const difference =
+          distance - previousPinchDistance;
 
-      const deltaX =
-        (pointer.x - this.lastPointerX) / camera.zoom;
-
-      const deltaY =
-        (pointer.y - this.lastPointerY) / camera.zoom;
-
-      camera.scrollX -= deltaX;
-      camera.scrollY -= deltaY;
-
-      this.lastPointerX = pointer.x;
-      this.lastPointerY = pointer.y;
-    });
-
-    this.input.on(
-      "wheel",
-      (pointer, gameObjects, deltaX, deltaY) => {
-        const camera = this.cameras.main;
-
-        const zoomChange = deltaY > 0 ? -0.1 : 0.1;
+        const zoomChange = difference * 0.003;
 
         const newZoom = Phaser.Math.Clamp(
           camera.zoom + zoomChange,
-          0.35,
-          2
+          0.25,
+          2.5
         );
 
         camera.setZoom(newZoom);
       }
-    );
-  }
+
+      previousPinchDistance = distance;
+      return;
+    }
+
+    previousPinchDistance = null;
+
+    // One-finger map dragging
+    if (!this.isDragging) {
+      return;
+    }
+
+    const deltaX =
+      (pointer.x - this.lastPointerX) / camera.zoom;
+
+    const deltaY =
+      (pointer.y - this.lastPointerY) / camera.zoom;
+
+    camera.scrollX -= deltaX;
+    camera.scrollY -= deltaY;
+
+    this.lastPointerX = pointer.x;
+    this.lastPointerY = pointer.y;
+  });
+
+  // Desktop / mouse-wheel zoom
+  this.input.on(
+    "wheel",
+    (pointer, gameObjects, deltaX, deltaY) => {
+      const zoomChange =
+        deltaY > 0 ? -0.1 : 0.1;
+
+      camera.setZoom(
+        Phaser.Math.Clamp(
+          camera.zoom + zoomChange,
+          0.25,
+          2.5
+        )
+      );
+    }
+  );
+}
 
   drawWorld() {
     const graphics = this.add.graphics();
