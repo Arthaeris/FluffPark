@@ -6,11 +6,14 @@ import {
   getTileType
 } from "./data.js";
 
-const MAX_ZOOM = 3;
+const MAX_SCALE = 3;
 
 class WorldScene extends Phaser.Scene {
   constructor() {
     super("WorldScene");
+
+    this.worldContainer = null;
+    this.debugText = null;
 
     this.isDragging = false;
     this.lastPointerX = 0;
@@ -18,16 +21,13 @@ class WorldScene extends Phaser.Scene {
 
     this.pinchActive = false;
     this.pinchStartDistance = 0;
-    this.pinchStartZoom = 1;
+    this.pinchStartScale = 1;
+
+    // Fixed zoom point for the entire pinch gesture.
     this.pinchScreenX = 0;
     this.pinchScreenY = 0;
-    this.pinchWorldX = 0;
-    this.pinchWorldY = 0;
-
-    this.debugText = null;
-    this.uiCamera = null;
-
-    this.worldObjects = [];
+    this.pinchLocalX = 0;
+    this.pinchLocalY = 0;
 
     this.worldPixelWidth = 0;
     this.worldPixelHeight = 0;
@@ -40,80 +40,82 @@ class WorldScene extends Phaser.Scene {
     this.worldPixelHeight =
       WORLD.height * WORLD.tileSize;
 
-    const camera = this.cameras.main;
-
     /*
-    IMPORTANT:
-    We intentionally do NOT use camera.setBounds().
+    The Phaser camera stays at 1× forever.
 
-    The camera is allowed to move partly outside
-    the world.
+    We move and scale this container instead.
     */
+    this.worldContainer =
+      this.add.container(0, 0);
 
     this.drawWorld();
     this.drawMapLabels();
 
     /*
-    Start somewhere around the southern half
-    of the world.
+    Start at a useful zoom and position.
     */
-
-    camera.setZoom(0.5);
-
-    camera.centerOn(
-      this.worldPixelWidth / 2,
-      this.worldPixelHeight * 0.7
+    const startingScale = Math.max(
+      this.getMinimumScale(),
+      0.5
     );
 
-    this.clampCamera();
+    this.worldContainer.setScale(
+      startingScale
+    );
+
+    /*
+    Initially center the map horizontally,
+    with the view around the lower/middle area.
+    */
+    this.worldContainer.x =
+      (
+        this.scale.width -
+        this.worldPixelWidth *
+          startingScale
+      ) / 2;
+
+    this.worldContainer.y =
+      this.scale.height * 0.5 -
+      this.worldPixelHeight *
+        startingScale *
+        0.7;
+
+    this.clampWorldPosition();
 
     this.createInterface();
-    this.setupCameraControls();
+    this.setupControls();
 
-    this.scale.on("resize", (gameSize) => {
-      if (this.uiCamera) {
-        this.uiCamera.setViewport(
-          0,
-          0,
-          gameSize.width,
-          gameSize.height
-        );
+    this.scale.on(
+      "resize",
+      () => {
+        const minimum =
+          this.getMinimumScale();
+
+        if (
+          this.worldContainer.scaleX <
+          minimum
+        ) {
+          this.setScaleAroundScreenPoint(
+            this.scale.width / 2,
+            this.scale.height / 2,
+            minimum
+          );
+        }
+
+        this.clampWorldPosition();
       }
-
-      /*
-      If the screen orientation or size changes,
-      make sure the current zoom is still legal.
-      */
-
-      const minimumZoom =
-        this.getMinimumZoom();
-
-      if (
-        this.cameras.main.zoom <
-        minimumZoom
-      ) {
-        this.cameras.main.setZoom(
-          minimumZoom
-        );
-      }
-
-      this.clampCamera();
-    });
+    );
   }
 
   /*
   ==================================================
-  WORLD RENDERING
+  WORLD DRAWING
   ==================================================
   */
 
   drawWorld() {
     const graphics =
       this.add.graphics();
-
-    this.worldObjects.push(
-      graphics
-    );
 
     const tileSize =
       WORLD.tileSize;
@@ -135,9 +137,7 @@ class WorldScene extends Phaser.Scene {
           TILE_COLORS[tileType] ??
           0xff00ff;
 
-        graphics.fillStyle(
-          color
-        );
+        graphics.fillStyle(color);
 
         graphics.fillRect(
           tileX * tileSize,
@@ -148,20 +148,9 @@ class WorldScene extends Phaser.Scene {
       }
     }
 
-    this.drawGrid();
-  }
-
-  drawGrid() {
-    const graphics =
-      this.add.graphics();
-
-    this.worldObjects.push(
-      graphics
-    );
-
-    const tileSize =
-      WORLD.tileSize;
-
+    /*
+    Temporary tile grid.
+    */
     graphics.lineStyle(
       1,
       0x000000,
@@ -193,6 +182,10 @@ class WorldScene extends Phaser.Scene {
         y * tileSize
       );
     }
+
+    this.worldContainer.add(
+      graphics
+    );
   }
 
   drawMapLabels() {
@@ -207,14 +200,9 @@ class WorldScene extends Phaser.Scene {
             WORLD.tileSize,
           label.text,
           {
-            fontFamily:
-              "Arial",
-
-            fontSize:
-              "18px",
-
-            color:
-              "#ffffff",
+            fontFamily: "Arial",
+            fontSize: "18px",
+            color: "#ffffff",
 
             backgroundColor:
               "rgba(0, 0, 0, 0.45)",
@@ -224,21 +212,14 @@ class WorldScene extends Phaser.Scene {
               y: 3
             },
 
-            align:
-              "center"
+            align: "center"
           }
         );
 
-      text.setOrigin(
-        0.5,
-        0.5
-      );
+      text.setOrigin(0.5);
+      text.setDepth(10);
 
-      text.setDepth(
-        10
-      );
-
-      this.worldObjects.push(
+      this.worldContainer.add(
         text
       );
     }
@@ -251,6 +232,11 @@ class WorldScene extends Phaser.Scene {
   */
 
   createInterface() {
+    /*
+    This is NOT inside worldContainer.
+
+    Therefore it never moves and never scales.
+    */
     this.debugText =
       this.add.text(
         12,
@@ -260,14 +246,9 @@ class WorldScene extends Phaser.Scene {
           "Touch a tile"
         ],
         {
-          fontFamily:
-            "Arial",
-
-          fontSize:
-            "16px",
-
-          color:
-            "#ffffff",
+          fontFamily: "Arial",
+          fontSize: "16px",
+          color: "#ffffff",
 
           backgroundColor:
             "rgba(0, 0, 0, 0.78)",
@@ -282,62 +263,17 @@ class WorldScene extends Phaser.Scene {
       );
 
     this.debugText
-      .setOrigin(
-        0,
-        0
-      )
-      .setDepth(
-        10000
-      );
-
-    /*
-    Separate UI camera.
-
-    This camera never zooms or scrolls,
-    so the info box remains the same size.
-    */
-
-    this.uiCamera =
-      this.cameras.add(
-        0,
-        0,
-        this.scale.width,
-        this.scale.height
-      );
-
-    this.uiCamera.setZoom(
-      1
-    );
-
-    this.uiCamera.setScroll(
-      0,
-      0
-    );
-
-    /*
-    Main camera sees only world.
-    */
-
-    this.cameras.main.ignore(
-      this.debugText
-    );
-
-    /*
-    UI camera sees only UI.
-    */
-
-    this.uiCamera.ignore(
-      this.worldObjects
-    );
+      .setOrigin(0, 0)
+      .setDepth(10000);
   }
 
   /*
   ==================================================
-  INPUT
+  CONTROLS
   ==================================================
   */
 
-  setupCameraControls() {
+  setupControls() {
     this.input.on(
       "pointerdown",
       (pointer) => {
@@ -345,31 +281,32 @@ class WorldScene extends Phaser.Scene {
           this.getActivePointers();
 
         /*
-        Second finger has appeared:
-        begin fixed-point pinch zoom.
+        TWO FINGERS:
+        begin pinch.
         */
-
         if (
           pointers.length >= 2
         ) {
           this.isDragging =
             false;
 
-          this.beginPinch(
-            pointers[0],
-            pointers[1]
-          );
+          if (
+            !this.pinchActive
+          ) {
+            this.beginPinch(
+              pointers[0],
+              pointers[1]
+            );
+          }
 
           return;
         }
 
         /*
-        One finger:
-        begin panning.
+        ONE FINGER:
+        begin normal pan.
         */
-
-        this.isDragging =
-          true;
+        this.isDragging = true;
 
         this.lastPointerX =
           pointer.x;
@@ -391,16 +328,8 @@ class WorldScene extends Phaser.Scene {
 
         /*
         ============================================
-        TWO-FINGER FIXED-POINT ZOOM
+        PINCH
         ============================================
-
-        The location between the fingers at the
-        MOMENT THE PINCH BEGINS is the zoom center.
-
-        Moving both fingers around afterwards does
-        NOT pan the map.
-
-        Only their changing distance changes zoom.
         */
 
         if (
@@ -427,11 +356,10 @@ class WorldScene extends Phaser.Scene {
         }
 
         /*
-        A pinch has just ended.
-        Don't immediately turn the remaining
-        finger into a drag.
+        If a pinch just ended,
+        do not let the remaining finger
+        suddenly drag the map.
         */
-
         if (
           this.pinchActive
         ) {
@@ -453,24 +381,16 @@ class WorldScene extends Phaser.Scene {
         if (
           this.isDragging
         ) {
-          const camera =
-            this.cameras.main;
-
-          const deltaX =
+          const dx =
             pointer.x -
             this.lastPointerX;
 
-          const deltaY =
+          const dy =
             pointer.y -
             this.lastPointerY;
 
-          camera.scrollX -=
-            deltaX /
-            camera.zoom;
-
-          camera.scrollY -=
-            deltaY /
-            camera.zoom;
+          this.worldContainer.x += dx;
+          this.worldContainer.y += dy;
 
           this.lastPointerX =
             pointer.x;
@@ -478,7 +398,7 @@ class WorldScene extends Phaser.Scene {
           this.lastPointerY =
             pointer.y;
 
-          this.clampCamera();
+          this.clampWorldPosition();
         }
 
         this.updateTileInfo(
@@ -521,9 +441,8 @@ class WorldScene extends Phaser.Scene {
     );
 
     /*
-    Desktop wheel support.
+    Desktop mouse-wheel zoom.
     */
-
     this.input.on(
       "wheel",
       (
@@ -532,28 +451,28 @@ class WorldScene extends Phaser.Scene {
         deltaX,
         deltaY
       ) => {
-        const camera =
-          this.cameras.main;
+        const oldScale =
+          this.worldContainer.scaleX;
 
         const multiplier =
           deltaY > 0
             ? 0.9
             : 1.1;
 
-        const newZoom =
+        const newScale =
           Phaser.Math.Clamp(
-            camera.zoom *
-              multiplier,
-
-            this.getMinimumZoom(),
-            MAX_ZOOM
+            oldScale * multiplier,
+            this.getMinimumScale(),
+            MAX_SCALE
           );
 
-        this.zoomAtPoint(
+        this.setScaleAroundScreenPoint(
           pointer.x,
           pointer.y,
-          newZoom
+          newScale
         );
+
+        this.clampWorldPosition();
       }
     );
   }
@@ -567,7 +486,7 @@ class WorldScene extends Phaser.Scene {
 
   /*
   ==================================================
-  PINCH ZOOM
+  PINCH
   ==================================================
   */
 
@@ -575,14 +494,7 @@ class WorldScene extends Phaser.Scene {
     pointerA,
     pointerB
   ) {
-    const camera =
-      this.cameras.main;
-
-    /*
-    Initial distance between fingers.
-    */
-
-    this.pinchStartDistance =
+    const distance =
       Phaser.Math.Distance.Between(
         pointerA.x,
         pointerA.y,
@@ -591,17 +503,20 @@ class WorldScene extends Phaser.Scene {
       );
 
     if (
-      this.pinchStartDistance <= 0
+      distance <= 0
     ) {
       return;
     }
 
-    this.pinchStartZoom =
-      camera.zoom;
+    this.pinchStartDistance =
+      distance;
+
+    this.pinchStartScale =
+      this.worldContainer.scaleX;
 
     /*
-    Screen midpoint BETWEEN THE FINGERS
-    AT PINCH START.
+    The midpoint at the instant the pinch begins.
+    THIS NEVER CHANGES DURING THE GESTURE.
     */
 
     this.pinchScreenX =
@@ -617,20 +532,25 @@ class WorldScene extends Phaser.Scene {
       ) / 2;
 
     /*
-    Exact world point under that midpoint.
+    Convert that screen position into a coordinate
+    inside the unscaled world.
+
+    This is the exact location we keep stationary.
     */
 
-    const worldPoint =
-      camera.getWorldPoint(
-        this.pinchScreenX,
-        this.pinchScreenY
-      );
+    this.pinchLocalX =
+      (
+        this.pinchScreenX -
+        this.worldContainer.x
+      ) /
+      this.worldContainer.scaleX;
 
-    this.pinchWorldX =
-      worldPoint.x;
-
-    this.pinchWorldY =
-      worldPoint.y;
+    this.pinchLocalY =
+      (
+        this.pinchScreenY -
+        this.worldContainer.y
+      ) /
+      this.worldContainer.scaleY;
 
     this.pinchActive =
       true;
@@ -647,13 +567,11 @@ class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const camera =
-      this.cameras.main;
-
     /*
-    Only finger DISTANCE matters now.
+    ONLY distance matters.
 
-    The moving midpoint is deliberately ignored.
+    Finger movement left/right/up/down is ignored.
+    It cannot pan the map.
     */
 
     const currentDistance =
@@ -674,168 +592,180 @@ class WorldScene extends Phaser.Scene {
       currentDistance /
       this.pinchStartDistance;
 
-    const newZoom =
+    const newScale =
       Phaser.Math.Clamp(
-        this.pinchStartZoom *
+        this.pinchStartScale *
           ratio,
 
-        this.getMinimumZoom(),
-        MAX_ZOOM
+        this.getMinimumScale(),
+        MAX_SCALE
       );
 
-    camera.setZoom(
-      newZoom
+    /*
+    Scale the world.
+    */
+    this.worldContainer.setScale(
+      newScale
     );
 
     /*
-    Recalculate scroll so the exact world point
-    that was between the fingers WHEN THE PINCH
-    STARTED remains at that exact screen location.
+    Then put the SAME map coordinate back under
+    the SAME screen coordinate where the pinch began.
 
-    This is the entire zoom behavior.
-
-    No moving midpoint.
-    No two-finger panning.
-    No camera bounds fighting the zoom.
+    Nothing else moves.
     */
 
-    camera.scrollX =
-      this.pinchWorldX -
-      this.pinchScreenX /
-      newZoom;
+    this.worldContainer.x =
+      this.pinchScreenX -
+      this.pinchLocalX *
+        newScale;
 
-    camera.scrollY =
-      this.pinchWorldY -
-      this.pinchScreenY /
-      newZoom;
+    this.worldContainer.y =
+      this.pinchScreenY -
+      this.pinchLocalY *
+        newScale;
 
-    this.clampCamera();
+    /*
+    Do NOT clamp here.
+
+    Clamping while fingers are actively zooming
+    is exactly what caused edge bouncing before.
+
+    We allow the zoom operation itself to remain
+    completely stable.
+
+    Position is constrained after the gesture.
+    */
   }
 
   /*
   ==================================================
-  DESKTOP POINT ZOOM
+  GENERIC SCALE AROUND SCREEN POINT
   ==================================================
   */
 
-  zoomAtPoint(
+  setScaleAroundScreenPoint(
     screenX,
     screenY,
-    newZoom
+    newScale
   ) {
-    const camera =
-      this.cameras.main;
+    const oldScale =
+      this.worldContainer.scaleX;
 
-    const worldPoint =
-      camera.getWorldPoint(
-        screenX,
-        screenY
-      );
+    const localX =
+      (
+        screenX -
+        this.worldContainer.x
+      ) /
+      oldScale;
 
-    camera.setZoom(
-      newZoom
+    const localY =
+      (
+        screenY -
+        this.worldContainer.y
+      ) /
+      oldScale;
+
+    this.worldContainer.setScale(
+      newScale
     );
 
-    camera.scrollX =
-      worldPoint.x -
-      screenX /
-      newZoom;
+    this.worldContainer.x =
+      screenX -
+      localX *
+        newScale;
 
-    camera.scrollY =
-      worldPoint.y -
-      screenY /
-      newZoom;
-
-    this.clampCamera();
+    this.worldContainer.y =
+      screenY -
+      localY *
+        newScale;
   }
 
   /*
   ==================================================
-  MINIMUM ZOOM
+  MINIMUM SCALE
   ==================================================
   */
 
-  getMinimumZoom() {
+  getMinimumScale() {
     /*
-    Exactly as specified:
+    At maximum zoom-out:
 
-    The farthest zoom-out occurs when
-    the WORLD WIDTH equals SCREEN WIDTH.
-
-    Height does not determine minimum zoom.
+    world width == screen width
     */
 
-    const camera =
-      this.cameras.main;
-
     return (
-      camera.width /
+      this.scale.width /
       this.worldPixelWidth
     );
   }
 
   /*
   ==================================================
-  CAMERA LIMITS
+  PAN LIMITS
   ==================================================
   */
 
-  clampCamera() {
-    const camera =
-      this.cameras.main;
+  clampWorldPosition() {
+    const screenWidth =
+      this.scale.width;
 
-    const visibleWidth =
-      camera.width /
-      camera.zoom;
+    const screenHeight =
+      this.scale.height;
 
-    const visibleHeight =
-      camera.height /
-      camera.zoom;
+    const scaledWorldWidth =
+      this.worldPixelWidth *
+      this.worldContainer.scaleX;
+
+    const scaledWorldHeight =
+      this.worldPixelHeight *
+      this.worldContainer.scaleY;
 
     /*
-    The world is allowed to move partly
-    outside the screen.
+    Your requested rule:
 
-    At the maximum permitted overscroll,
-    a world edge may reach the CENTER
-    of the viewport.
+    A world edge may move as far as
+    the center of the screen.
 
-    Therefore half the visible screen can
-    show empty/out-of-bounds space.
+    LEFT EDGE:
+    may move to screen center.
+
+    RIGHT EDGE:
+    may move to screen center.
     */
 
-    const minScrollX =
-      -visibleWidth / 2;
+    const maxX =
+      screenWidth / 2;
 
-    const maxScrollX =
-      this.worldPixelWidth -
-      visibleWidth / 2;
+    const minX =
+      screenWidth / 2 -
+      scaledWorldWidth;
 
-    const minScrollY =
-      -visibleHeight / 2;
+    const maxY =
+      screenHeight / 2;
 
-    const maxScrollY =
-      this.worldPixelHeight -
-      visibleHeight / 2;
+    const minY =
+      screenHeight / 2 -
+      scaledWorldHeight;
 
-    camera.scrollX =
+    this.worldContainer.x =
       Phaser.Math.Clamp(
-        camera.scrollX,
-        minScrollX,
-        maxScrollX
+        this.worldContainer.x,
+        minX,
+        maxX
       );
 
-    camera.scrollY =
+    this.worldContainer.y =
       Phaser.Math.Clamp(
-        camera.scrollY,
-        minScrollY,
-        maxScrollY
+        this.worldContainer.y,
+        minY,
+        maxY
       );
   }
 
   /*
   ==================================================
-  TILE INFORMATION
+  TILE INFO
   ==================================================
   */
 
@@ -848,25 +778,38 @@ class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const camera =
-      this.cameras.main;
+    const scale =
+      this.worldContainer.scaleX;
 
-    const worldPoint =
-      camera.getWorldPoint(
-        pointer.x,
-        pointer.y
-      );
+    /*
+    Convert screen coordinates into
+    coordinates inside the map container.
+    */
+
+    const localX =
+      (
+        pointer.x -
+        this.worldContainer.x
+      ) /
+      scale;
+
+    const localY =
+      (
+        pointer.y -
+        this.worldContainer.y
+      ) /
+      scale;
 
     const tileX =
       Math.floor(
-        worldPoint.x /
-          WORLD.tileSize
+        localX /
+        WORLD.tileSize
       );
 
     const tileY =
       Math.floor(
-        worldPoint.y /
-          WORLD.tileSize
+        localY /
+        WORLD.tileSize
       );
 
     const tileType =
@@ -882,7 +825,7 @@ class WorldScene extends Phaser.Scene {
         [
           `Tile: ${tileX}, ${tileY}`,
           "Type: Out of Bounds",
-          `Zoom: ${camera.zoom.toFixed(2)}x`
+          `Zoom: ${scale.toFixed(2)}x`
         ]
       );
 
@@ -893,28 +836,23 @@ class WorldScene extends Phaser.Scene {
       [
         `Tile: ${tileX}, ${tileY}`,
         `Type: ${tileType}`,
-        `Zoom: ${camera.zoom.toFixed(2)}x`
+        `Zoom: ${scale.toFixed(2)}x`
       ]
     );
   }
 }
 
 export const gameConfig = {
-  type:
-    Phaser.AUTO,
+  type: Phaser.AUTO,
 
-  parent:
-    "game",
+  parent: "game",
 
   backgroundColor:
     "#111111",
 
   render: {
-    pixelArt:
-      true,
-
-    antialias:
-      false
+    pixelArt: true,
+    antialias: false
   },
 
   scale: {
@@ -926,8 +864,7 @@ export const gameConfig = {
   },
 
   input: {
-    activePointers:
-      3
+    activePointers: 3
   },
 
   scene: [
