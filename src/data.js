@@ -74,6 +74,12 @@ export const TILE_COLORS = {
   [TILE_TYPES.RESIDENTIAL_GRASS]: 0x86ad69
 };
 
+/*
+==================================================
+WORLD MAP
+==================================================
+*/
+
 export const worldMap = Array.from(
   { length: WORLD.height },
   () =>
@@ -82,6 +88,12 @@ export const worldMap = Array.from(
       () => TILE_TYPES.GRASS
     )
 );
+
+/*
+==================================================
+MAP HELPERS
+==================================================
+*/
 
 function paintRect(
   x,
@@ -103,9 +115,18 @@ function paintRect(
     y + height
   );
 
-  for (let tileY = startY; tileY < endY; tileY++) {
-    for (let tileX = startX; tileX < endX; tileX++) {
-      worldMap[tileY][tileX] = tileType;
+  for (
+    let tileY = startY;
+    tileY < endY;
+    tileY++
+  ) {
+    for (
+      let tileX = startX;
+      tileX < endX;
+      tileX++
+    ) {
+      worldMap[tileY][tileX] =
+        tileType;
     }
   }
 }
@@ -123,10 +144,16 @@ function scatterTiles(
 
   function random() {
     value =
-      (value * 1664525 + 1013904223) %
+      (
+        value * 1664525 +
+        1013904223
+      ) %
       4294967296;
 
-    return value / 4294967296;
+    return (
+      value /
+      4294967296
+    );
   }
 
   for (
@@ -148,8 +175,11 @@ function scatterTiles(
         continue;
       }
 
-      if (random() < density) {
-        worldMap[tileY][tileX] = tileType;
+      if (
+        random() < density
+      ) {
+        worldMap[tileY][tileX] =
+          tileType;
       }
     }
   }
@@ -157,12 +187,8 @@ function scatterTiles(
 
 /*
 ==================================================
-WORLD LAYOUT
+OUTER FOREST
 ==================================================
-*/
-
-/*
-NORTH / OUTER FOREST
 */
 
 paintRect(
@@ -194,7 +220,9 @@ scatterTiles(
 );
 
 /*
+==================================================
 NORTHERN FUTURE FACILITIES
+==================================================
 */
 
 paintRect(
@@ -270,7 +298,9 @@ paintRect(
 );
 
 /*
+==================================================
 MAIN PARK / FOREST
+==================================================
 */
 
 paintRect(
@@ -302,7 +332,9 @@ scatterTiles(
 );
 
 /*
-Starter clearing
+==================================================
+STARTER PARK
+==================================================
 */
 
 paintRect(
@@ -326,7 +358,7 @@ paintRect(
 );
 
 /*
-Park frontage / southern green belt
+Park frontage
 */
 
 paintRect(
@@ -338,7 +370,9 @@ paintRect(
 );
 
 /*
+==================================================
 TOWN BUILDING STRIP
+==================================================
 */
 
 paintRect(
@@ -442,7 +476,7 @@ paintRect(
 );
 
 /*
-Dog Walker HQ
+Dog Walker
 */
 
 paintRect(
@@ -466,7 +500,9 @@ paintRect(
 );
 
 /*
-SIDEWALK ALONG MAIN STREET
+==================================================
+MAIN STREET
+==================================================
 */
 
 paintRect(
@@ -477,10 +513,6 @@ paintRect(
   TILE_TYPES.SIDEWALK
 );
 
-/*
-MAIN STREET
-*/
-
 paintRect(
   0,
   432,
@@ -488,10 +520,6 @@ paintRect(
   24,
   TILE_TYPES.MAIN_STREET
 );
-
-/*
-SOUTH SIDEWALK
-*/
 
 paintRect(
   0,
@@ -502,7 +530,9 @@ paintRect(
 );
 
 /*
+==================================================
 RESIDENTIAL DISTRICT
+==================================================
 */
 
 paintRect(
@@ -604,7 +634,6 @@ paintRect(
 /*
 ==================================================
 MAP LABELS
-These are large map labels, not per-tile labels.
 ==================================================
 */
 
@@ -718,6 +747,12 @@ export const MAP_LABELS = [
   }
 ];
 
+/*
+==================================================
+TILE LOOKUP
+==================================================
+*/
+
 export function getTileType(
   tileX,
   tileY
@@ -733,3 +768,265 @@ export function getTileType(
 
   return worldMap[tileY][tileX];
 }
+
+/*
+==================================================
+DOG DATA
+==================================================
+
+Procedural pet sprites use 32×32 ASCII frames.
+
+Characters:
+
+. = transparent
+B = base coat
+C = cream / secondary coat
+D = dark details
+
+The dark outer outline is NOT stored here.
+game.js will generate that automatically around
+the visible pixels.
+
+This means coat colors can later be replaced
+by an individual dog's genetics.
+==================================================
+*/
+
+/*
+==================================================
+SHIBA INU
+==================================================
+*/
+
+export const SHIBA = {
+  breed: "Shiba Inu",
+
+  spriteSize: 32,
+
+  colors: {
+    base: "#c96f32",
+    cream: "#f2d6a2",
+    detail: "#25170f",
+    outline: "#3a2418"
+  },
+
+  /*
+  These will later become proper genetic traits.
+  For now they describe our prototype Shiba.
+  */
+
+  traits: {
+    size: "medium",
+    build: "compact",
+    coatLength: "short",
+    earShape: "upright",
+    tailShape: "curled"
+  },
+
+  /*
+  Number of milliseconds each walking
+  animation frame is displayed.
+  */
+
+  walkFrameDuration: 140
+};
+
+/*
+==================================================
+SHIBA SIDE WALK
+
+Faces RIGHT.
+
+For walking left, game.js should simply mirror
+the generated sprite horizontally.
+
+The four frames form:
+
+1 → 2 → 3 → 4 → 1
+
+==================================================
+*/
+
+export const SHIBA_SIDE_WALK = [
+
+  /*
+  FRAME 1
+  Legs extended.
+  */
+
+  [
+    "................................",
+    "................................",
+    ".......................B........",
+    "......................BBB.......",
+    ".....................BBBBB......",
+    "....................BBBBBBB.....",
+    ".....BBB............BBBBBBB.....",
+    "...BBBBBB..........BBBBBBBB.....",
+    "..BBBBBBBB........BBBBBBBBBB....",
+    "..BBB..BBBB......BBBBBBBBBBBB...",
+    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
+    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
+    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
+    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
+    "........BBBBBBBBBBBBBBBBBCCCCB..",
+    ".........BBBBBBBBBBBBBBBBBCCBB..",
+    "..........BBBBBBBBBBBBBBBBBBB...",
+    "...........BBBBBBBBBBBBBBBBB....",
+    "............BBBBBBBBBBBBBBB.....",
+    ".............BBBBBBBBBBBBB......",
+    "............BBB.......BBB.......",
+    "...........BBBB.......BBBB......",
+    "..........BBB...........BBB.....",
+    ".........BBB.............BBB....",
+    ".........BB...............BB....",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................"
+  ],
+
+  /*
+  FRAME 2
+  Legs passing beneath body.
+  */
+
+  [
+    "................................",
+    "................................",
+    ".......................B........",
+    "......................BBB.......",
+    ".....................BBBBB......",
+    "....................BBBBBBB.....",
+    ".....BBB............BBBBBBB.....",
+    "...BBBBBB..........BBBBBBBB.....",
+    "..BBBBBBBB........BBBBBBBBBB....",
+    "..BBB..BBBB......BBBBBBBBBBBB...",
+    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
+    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
+    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
+    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
+    "........BBBBBBBBBBBBBBBBBCCCCB..",
+    ".........BBBBBBBBBBBBBBBBBCCBB..",
+    "..........BBBBBBBBBBBBBBBBBBB...",
+    "...........BBBBBBBBBBBBBBBBB....",
+    "............BBBBBBBBBBBBBBB.....",
+    ".............BBBBBBBBBBBBB......",
+    ".............BBB.....BBB........",
+    ".............BBBB...BBBB........",
+    "..............BBB...BBB.........",
+    "...............BB...BB..........",
+    "...............BB...BB..........",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................"
+  ],
+
+  /*
+  FRAME 3
+  Opposite legs extended.
+  */
+
+  [
+    "................................",
+    "................................",
+    ".......................B........",
+    "......................BBB.......",
+    ".....................BBBBB......",
+    "....................BBBBBBB.....",
+    ".....BBB............BBBBBBB.....",
+    "...BBBBBB..........BBBBBBBB.....",
+    "..BBBBBBBB........BBBBBBBBBB....",
+    "..BBB..BBBB......BBBBBBBBBBBB...",
+    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
+    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
+    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
+    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
+    "........BBBBBBBBBBBBBBBBBCCCCB..",
+    ".........BBBBBBBBBBBBBBBBBCCBB..",
+    "..........BBBBBBBBBBBBBBBBBBB...",
+    "...........BBBBBBBBBBBBBBBBB....",
+    "............BBBBBBBBBBBBBBB.....",
+    ".............BBBBBBBBBBBBB......",
+    "..............BBB....BBB........",
+    ".............BBBB....BBBB.......",
+    "............BBB........BBB......",
+    "...........BBB..........BBB.....",
+    "..........BB............BB......",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................"
+  ],
+
+  /*
+  FRAME 4
+  Second passing pose.
+  */
+
+  [
+    "................................",
+    "................................",
+    ".......................B........",
+    "......................BBB.......",
+    ".....................BBBBB......",
+    "....................BBBBBBB.....",
+    ".....BBB............BBBBBBB.....",
+    "...BBBBBB..........BBBBBBBB.....",
+    "..BBBBBBBB........BBBBBBBBBB....",
+    "..BBB..BBBB......BBBBBBBBBBBB...",
+    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
+    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
+    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
+    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
+    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
+    "........BBBBBBBBBBBBBBBBBCCCCB..",
+    ".........BBBBBBBBBBBBBBBBBCCBB..",
+    "..........BBBBBBBBBBBBBBBBBBB...",
+    "...........BBBBBBBBBBBBBBBBB....",
+    "............BBBBBBBBBBBBBBB.....",
+    ".............BBBBBBBBBBBBB......",
+    "............BBB......BBB........",
+    "............BBBB....BBBB........",
+    ".............BBB....BBB.........",
+    "..............BB....BB..........",
+    "..............BB....BB..........",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................"
+  ]
+];
+
+/*
+==================================================
+FUTURE DOG SYSTEM
+
+Eventually we can add reusable components such as:
+
+DOG_BODIES
+DOG_HEADS
+DOG_EARS
+DOG_TAILS
+DOG_MARKINGS
+DOG_COAT_COLORS
+
+Then breeds will define ranges / probabilities
+rather than needing completely separate sprites.
+
+For now, the Shiba is intentionally self-contained
+so we can prove that procedural pixel dogs work.
+==================================================
+*/
