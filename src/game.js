@@ -5,7 +5,9 @@ import {
   MAP_LABELS,
   getTileType,
   SHIBA,
-  SHIBA_SIDE_WALK
+  SHIBA_SIDE_WALK,
+  SHIBA_LIE,
+  SHIBA_SIT
 } from "./data.js";
 
 const MAX_SCALE = 3;
@@ -37,11 +39,14 @@ class WorldScene extends Phaser.Scene {
     this.shibaFrameIndex = 0;
     this.shibaDirection = 1;
     this.shibaSpeed = 26;
+
     this.shibaMinX = 0;
     this.shibaMaxX = 0;
     this.shibaY = 0;
 
-    this.shibaTextureKeys = [];
+    this.shibaWalkTextureKeys = [];
+    this.shibaLieTextureKey = "shiba-lie";
+    this.shibaSitTextureKey = "shiba-sit";
   }
 
   create() {
@@ -143,9 +148,7 @@ class WorldScene extends Phaser.Scene {
           TILE_COLORS[tileType] ??
           0xff00ff;
 
-        graphics.fillStyle(
-          color
-        );
+        graphics.fillStyle(color);
 
         graphics.fillRect(
           tileX * tileSize,
@@ -232,12 +235,12 @@ class WorldScene extends Phaser.Scene {
 
   /*
   ==================================================
-  SHIBA TEXTURE GENERATION
+  SHIBA TEXTURES
   ==================================================
   */
 
   createShibaTextures() {
-    this.shibaTextureKeys = [];
+    this.shibaWalkTextureKeys = [];
 
     for (
       let frameIndex = 0;
@@ -256,10 +259,22 @@ class WorldScene extends Phaser.Scene {
         SHIBA.colors
       );
 
-      this.shibaTextureKeys.push(
+      this.shibaWalkTextureKeys.push(
         key
       );
     }
+
+    this.createDogTextureFromAscii(
+      this.shibaLieTextureKey,
+      SHIBA_LIE,
+      SHIBA.colors
+    );
+
+    this.createDogTextureFromAscii(
+      this.shibaSitTextureKey,
+      SHIBA_SIT,
+      SHIBA.colors
+    );
   }
 
   createDogTextureFromAscii(
@@ -285,130 +300,16 @@ class WorldScene extends Phaser.Scene {
       false;
 
     /*
-    Build a boolean mask of all
-    non-transparent dog pixels.
-    */
+    No generated outline anymore.
 
-    const filled =
-      Array.from(
-        { length: size },
-        () =>
-          Array.from(
-            { length: size },
-            () => false
-          )
-      );
+    The ASCII sprite itself decides exactly
+    where every outline / interior black pixel goes.
 
-    for (
-      let y = 0;
-      y < size;
-      y++
-    ) {
-      for (
-        let x = 0;
-        x < size;
-        x++
-      ) {
-        const char =
-          frame[y]?.[x] ??
-          ".";
-
-        if (
-          char !== "."
-        ) {
-          filled[y][x] =
-            true;
-        }
-      }
-    }
-
-    /*
-    Draw generated outline first.
-
-    Any empty pixel touching a dog pixel
-    becomes outline.
-    */
-
-    ctx.fillStyle =
-      colors.outline;
-
-    for (
-      let y = 0;
-      y < size;
-      y++
-    ) {
-      for (
-        let x = 0;
-        x < size;
-        x++
-      ) {
-        if (
-          filled[y][x]
-        ) {
-          continue;
-        }
-
-        let touchesDog =
-          false;
-
-        for (
-          let offsetY = -1;
-          offsetY <= 1;
-          offsetY++
-        ) {
-          for (
-            let offsetX = -1;
-            offsetX <= 1;
-            offsetX++
-          ) {
-            if (
-              offsetX === 0 &&
-              offsetY === 0
-            ) {
-              continue;
-            }
-
-            const checkX =
-              x + offsetX;
-
-            const checkY =
-              y + offsetY;
-
-            if (
-              checkX < 0 ||
-              checkY < 0 ||
-              checkX >= size ||
-              checkY >= size
-            ) {
-              continue;
-            }
-
-            if (
-              filled[checkY][
-                checkX
-              ]
-            ) {
-              touchesDog =
-                true;
-            }
-          }
-        }
-
-        if (
-          touchesDog
-        ) {
-          ctx.fillRect(
-            x,
-            y,
-            1,
-            1
-          );
-        }
-      }
-    }
-
-    /*
-    Draw colored dog pixels.
+    Legend:
+    O = outline
+    B = base coat
+    C = cream coat
+    . = transparent
     */
 
     for (
@@ -432,24 +333,26 @@ class WorldScene extends Phaser.Scene {
         }
 
         if (
+          char === "O"
+        ) {
+          ctx.fillStyle =
+            colors.outline;
+        } else if (
           char === "B"
         ) {
           ctx.fillStyle =
             colors.base;
-        }
-
-        if (
+        } else if (
           char === "C"
         ) {
           ctx.fillStyle =
             colors.cream;
-        }
-
-        if (
-          char === "D"
-        ) {
-          ctx.fillStyle =
-            colors.detail;
+        } else {
+          /*
+          Unknown character:
+          ignore rather than drawing garbage.
+          */
+          continue;
         }
 
         ctx.fillRect(
@@ -478,8 +381,6 @@ class WorldScene extends Phaser.Scene {
     Starter Park:
     x = 190..321
     y = 300..354
-
-    Keep the dog comfortably inside it.
     */
 
     this.shibaMinX =
@@ -491,28 +392,28 @@ class WorldScene extends Phaser.Scene {
       WORLD.tileSize;
 
     this.shibaY =
-      328 *
+      330 *
       WORLD.tileSize;
 
     this.shiba =
       this.add.image(
         this.shibaMinX,
         this.shibaY,
-        this.shibaTextureKeys[0]
+        this.shibaWalkTextureKeys[0]
       );
 
     /*
-    The procedural texture is only 32×32.
+    Keep this much closer to native pixel size.
 
-    Scale it up slightly in world-space so
-    the dog is easy to see among 16px tiles.
+    1× = 32×32 world pixels
+       = 2×2 world tiles.
 
-    2× = 64×64 world pixels
-       = about 4×4 tiles visually.
+    That should look much cleaner than the
+    previous 2× enlargement.
     */
 
     this.shiba.setScale(
-      2
+      1
     );
 
     this.shiba.setOrigin(
@@ -524,13 +425,20 @@ class WorldScene extends Phaser.Scene {
       50
     );
 
+    /*
+    The authored sprite faces LEFT.
+
+    Direction +1 means walking right,
+    so mirror it initially.
+    */
+
+    this.shiba.setFlipX(
+      true
+    );
+
     this.worldContainer.add(
       this.shiba
     );
-
-    /*
-    Change animation frame on a timer.
-    */
 
     this.time.addEvent({
       delay:
@@ -552,11 +460,11 @@ class WorldScene extends Phaser.Scene {
               this.shibaFrameIndex +
               1
             ) %
-            this.shibaTextureKeys
+            this.shibaWalkTextureKeys
               .length;
 
           this.shiba.setTexture(
-            this.shibaTextureKeys[
+            this.shibaWalkTextureKeys[
               this.shibaFrameIndex
             ]
           );
@@ -579,6 +487,10 @@ class WorldScene extends Phaser.Scene {
       this.shibaDirection *
       seconds;
 
+    /*
+    Turn at right edge.
+    */
+
     if (
       this.shiba.x >=
       this.shibaMaxX
@@ -589,10 +501,17 @@ class WorldScene extends Phaser.Scene {
       this.shibaDirection =
         -1;
 
+      /*
+      Sprite already faces left.
+      */
       this.shiba.setFlipX(
-        true
+        false
       );
     }
+
+    /*
+    Turn at left edge.
+    */
 
     if (
       this.shiba.x <=
@@ -604,8 +523,11 @@ class WorldScene extends Phaser.Scene {
       this.shibaDirection =
         1;
 
+      /*
+      Mirror to face right.
+      */
       this.shiba.setFlipX(
-        false
+        true
       );
     }
   }
@@ -659,7 +581,7 @@ class WorldScene extends Phaser.Scene {
 
   /*
   ==================================================
-  CONTROLS
+  INPUT
   ==================================================
   */
 
