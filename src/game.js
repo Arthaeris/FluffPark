@@ -3,7 +3,9 @@ import {
   TILE_COLORS,
   worldMap,
   MAP_LABELS,
-  getTileType
+  getTileType,
+  SHIBA,
+  SHIBA_SIDE_WALK
 } from "./data.js";
 
 const MAX_SCALE = 3;
@@ -23,7 +25,6 @@ class WorldScene extends Phaser.Scene {
     this.pinchStartDistance = 0;
     this.pinchStartScale = 1;
 
-    // Fixed zoom point for the entire pinch gesture.
     this.pinchScreenX = 0;
     this.pinchScreenY = 0;
     this.pinchLocalX = 0;
@@ -31,6 +32,16 @@ class WorldScene extends Phaser.Scene {
 
     this.worldPixelWidth = 0;
     this.worldPixelHeight = 0;
+
+    this.shiba = null;
+    this.shibaFrameIndex = 0;
+    this.shibaDirection = 1;
+    this.shibaSpeed = 26;
+    this.shibaMinX = 0;
+    this.shibaMaxX = 0;
+    this.shibaY = 0;
+
+    this.shibaTextureKeys = [];
   }
 
   create() {
@@ -40,20 +51,15 @@ class WorldScene extends Phaser.Scene {
     this.worldPixelHeight =
       WORLD.height * WORLD.tileSize;
 
-    /*
-    The Phaser camera stays at 1× forever.
-
-    We move and scale this container instead.
-    */
     this.worldContainer =
       this.add.container(0, 0);
 
     this.drawWorld();
     this.drawMapLabels();
 
-    /*
-    Start at a useful zoom and position.
-    */
+    this.createShibaTextures();
+    this.createShiba();
+
     const startingScale = Math.max(
       this.getMinimumScale(),
       0.5
@@ -63,10 +69,6 @@ class WorldScene extends Phaser.Scene {
       startingScale
     );
 
-    /*
-    Initially center the map horizontally,
-    with the view around the lower/middle area.
-    */
     this.worldContainer.x =
       (
         this.scale.width -
@@ -107,6 +109,10 @@ class WorldScene extends Phaser.Scene {
     );
   }
 
+  update(time, delta) {
+    this.updateShiba(delta);
+  }
+
   /*
   ==================================================
   WORLD DRAWING
@@ -137,7 +143,9 @@ class WorldScene extends Phaser.Scene {
           TILE_COLORS[tileType] ??
           0xff00ff;
 
-        graphics.fillStyle(color);
+        graphics.fillStyle(
+          color
+        );
 
         graphics.fillRect(
           tileX * tileSize,
@@ -148,9 +156,6 @@ class WorldScene extends Phaser.Scene {
       }
     }
 
-    /*
-    Temporary tile grid.
-    */
     graphics.lineStyle(
       1,
       0x000000,
@@ -227,16 +232,391 @@ class WorldScene extends Phaser.Scene {
 
   /*
   ==================================================
+  SHIBA TEXTURE GENERATION
+  ==================================================
+  */
+
+  createShibaTextures() {
+    this.shibaTextureKeys = [];
+
+    for (
+      let frameIndex = 0;
+      frameIndex <
+      SHIBA_SIDE_WALK.length;
+      frameIndex++
+    ) {
+      const key =
+        `shiba-walk-${frameIndex}`;
+
+      this.createDogTextureFromAscii(
+        key,
+        SHIBA_SIDE_WALK[
+          frameIndex
+        ],
+        SHIBA.colors
+      );
+
+      this.shibaTextureKeys.push(
+        key
+      );
+    }
+  }
+
+  createDogTextureFromAscii(
+    key,
+    frame,
+    colors
+  ) {
+    const size =
+      SHIBA.spriteSize;
+
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx =
+      canvas.getContext("2d");
+
+    ctx.imageSmoothingEnabled =
+      false;
+
+    /*
+    Build a boolean mask of all
+    non-transparent dog pixels.
+    */
+
+    const filled =
+      Array.from(
+        { length: size },
+        () =>
+          Array.from(
+            { length: size },
+            () => false
+          )
+      );
+
+    for (
+      let y = 0;
+      y < size;
+      y++
+    ) {
+      for (
+        let x = 0;
+        x < size;
+        x++
+      ) {
+        const char =
+          frame[y]?.[x] ??
+          ".";
+
+        if (
+          char !== "."
+        ) {
+          filled[y][x] =
+            true;
+        }
+      }
+    }
+
+    /*
+    Draw generated outline first.
+
+    Any empty pixel touching a dog pixel
+    becomes outline.
+    */
+
+    ctx.fillStyle =
+      colors.outline;
+
+    for (
+      let y = 0;
+      y < size;
+      y++
+    ) {
+      for (
+        let x = 0;
+        x < size;
+        x++
+      ) {
+        if (
+          filled[y][x]
+        ) {
+          continue;
+        }
+
+        let touchesDog =
+          false;
+
+        for (
+          let offsetY = -1;
+          offsetY <= 1;
+          offsetY++
+        ) {
+          for (
+            let offsetX = -1;
+            offsetX <= 1;
+            offsetX++
+          ) {
+            if (
+              offsetX === 0 &&
+              offsetY === 0
+            ) {
+              continue;
+            }
+
+            const checkX =
+              x + offsetX;
+
+            const checkY =
+              y + offsetY;
+
+            if (
+              checkX < 0 ||
+              checkY < 0 ||
+              checkX >= size ||
+              checkY >= size
+            ) {
+              continue;
+            }
+
+            if (
+              filled[checkY][
+                checkX
+              ]
+            ) {
+              touchesDog =
+                true;
+            }
+          }
+        }
+
+        if (
+          touchesDog
+        ) {
+          ctx.fillRect(
+            x,
+            y,
+            1,
+            1
+          );
+        }
+      }
+    }
+
+    /*
+    Draw colored dog pixels.
+    */
+
+    for (
+      let y = 0;
+      y < size;
+      y++
+    ) {
+      for (
+        let x = 0;
+        x < size;
+        x++
+      ) {
+        const char =
+          frame[y]?.[x] ??
+          ".";
+
+        if (
+          char === "."
+        ) {
+          continue;
+        }
+
+        if (
+          char === "B"
+        ) {
+          ctx.fillStyle =
+            colors.base;
+        }
+
+        if (
+          char === "C"
+        ) {
+          ctx.fillStyle =
+            colors.cream;
+        }
+
+        if (
+          char === "D"
+        ) {
+          ctx.fillStyle =
+            colors.detail;
+        }
+
+        ctx.fillRect(
+          x,
+          y,
+          1,
+          1
+        );
+      }
+    }
+
+    this.textures.addCanvas(
+      key,
+      canvas
+    );
+  }
+
+  /*
+  ==================================================
+  SHIBA INSTANCE
+  ==================================================
+  */
+
+  createShiba() {
+    /*
+    Starter Park:
+    x = 190..321
+    y = 300..354
+
+    Keep the dog comfortably inside it.
+    */
+
+    this.shibaMinX =
+      205 *
+      WORLD.tileSize;
+
+    this.shibaMaxX =
+      305 *
+      WORLD.tileSize;
+
+    this.shibaY =
+      328 *
+      WORLD.tileSize;
+
+    this.shiba =
+      this.add.image(
+        this.shibaMinX,
+        this.shibaY,
+        this.shibaTextureKeys[0]
+      );
+
+    /*
+    The procedural texture is only 32×32.
+
+    Scale it up slightly in world-space so
+    the dog is easy to see among 16px tiles.
+
+    2× = 64×64 world pixels
+       = about 4×4 tiles visually.
+    */
+
+    this.shiba.setScale(
+      2
+    );
+
+    this.shiba.setOrigin(
+      0.5,
+      1
+    );
+
+    this.shiba.setDepth(
+      50
+    );
+
+    this.worldContainer.add(
+      this.shiba
+    );
+
+    /*
+    Change animation frame on a timer.
+    */
+
+    this.time.addEvent({
+      delay:
+        SHIBA.walkFrameDuration,
+
+      loop:
+        true,
+
+      callback:
+        () => {
+          if (
+            !this.shiba
+          ) {
+            return;
+          }
+
+          this.shibaFrameIndex =
+            (
+              this.shibaFrameIndex +
+              1
+            ) %
+            this.shibaTextureKeys
+              .length;
+
+          this.shiba.setTexture(
+            this.shibaTextureKeys[
+              this.shibaFrameIndex
+            ]
+          );
+        }
+    });
+  }
+
+  updateShiba(delta) {
+    if (
+      !this.shiba
+    ) {
+      return;
+    }
+
+    const seconds =
+      delta / 1000;
+
+    this.shiba.x +=
+      this.shibaSpeed *
+      this.shibaDirection *
+      seconds;
+
+    if (
+      this.shiba.x >=
+      this.shibaMaxX
+    ) {
+      this.shiba.x =
+        this.shibaMaxX;
+
+      this.shibaDirection =
+        -1;
+
+      this.shiba.setFlipX(
+        true
+      );
+    }
+
+    if (
+      this.shiba.x <=
+      this.shibaMinX
+    ) {
+      this.shiba.x =
+        this.shibaMinX;
+
+      this.shibaDirection =
+        1;
+
+      this.shiba.setFlipX(
+        false
+      );
+    }
+  }
+
+  /*
+  ==================================================
   FIXED UI
   ==================================================
   */
 
   createInterface() {
-    /*
-    This is NOT inside worldContainer.
-
-    Therefore it never moves and never scales.
-    */
     this.debugText =
       this.add.text(
         12,
@@ -246,9 +626,14 @@ class WorldScene extends Phaser.Scene {
           "Touch a tile"
         ],
         {
-          fontFamily: "Arial",
-          fontSize: "16px",
-          color: "#ffffff",
+          fontFamily:
+            "Arial",
+
+          fontSize:
+            "16px",
+
+          color:
+            "#ffffff",
 
           backgroundColor:
             "rgba(0, 0, 0, 0.78)",
@@ -263,8 +648,13 @@ class WorldScene extends Phaser.Scene {
       );
 
     this.debugText
-      .setOrigin(0, 0)
-      .setDepth(10000);
+      .setOrigin(
+        0,
+        0
+      )
+      .setDepth(
+        10000
+      );
   }
 
   /*
@@ -280,12 +670,9 @@ class WorldScene extends Phaser.Scene {
         const pointers =
           this.getActivePointers();
 
-        /*
-        TWO FINGERS:
-        begin pinch.
-        */
         if (
-          pointers.length >= 2
+          pointers.length >=
+          2
         ) {
           this.isDragging =
             false;
@@ -302,11 +689,8 @@ class WorldScene extends Phaser.Scene {
           return;
         }
 
-        /*
-        ONE FINGER:
-        begin normal pan.
-        */
-        this.isDragging = true;
+        this.isDragging =
+          true;
 
         this.lastPointerX =
           pointer.x;
@@ -326,14 +710,9 @@ class WorldScene extends Phaser.Scene {
         const pointers =
           this.getActivePointers();
 
-        /*
-        ============================================
-        PINCH
-        ============================================
-        */
-
         if (
-          pointers.length >= 2
+          pointers.length >=
+          2
         ) {
           this.isDragging =
             false;
@@ -355,11 +734,6 @@ class WorldScene extends Phaser.Scene {
           return;
         }
 
-        /*
-        If a pinch just ended,
-        do not let the remaining finger
-        suddenly drag the map.
-        */
         if (
           this.pinchActive
         ) {
@@ -372,12 +746,6 @@ class WorldScene extends Phaser.Scene {
           return;
         }
 
-        /*
-        ============================================
-        ONE-FINGER PAN
-        ============================================
-        */
-
         if (
           this.isDragging
         ) {
@@ -389,8 +757,11 @@ class WorldScene extends Phaser.Scene {
             pointer.y -
             this.lastPointerY;
 
-          this.worldContainer.x += dx;
-          this.worldContainer.y += dy;
+          this.worldContainer.x +=
+            dx;
+
+          this.worldContainer.y +=
+            dy;
 
           this.lastPointerX =
             pointer.x;
@@ -414,7 +785,8 @@ class WorldScene extends Phaser.Scene {
           this.getActivePointers();
 
         if (
-          pointers.length < 2
+          pointers.length <
+          2
         ) {
           this.pinchActive =
             false;
@@ -440,9 +812,6 @@ class WorldScene extends Phaser.Scene {
       }
     );
 
-    /*
-    Desktop mouse-wheel zoom.
-    */
     this.input.on(
       "wheel",
       (
@@ -452,7 +821,8 @@ class WorldScene extends Phaser.Scene {
         deltaY
       ) => {
         const oldScale =
-          this.worldContainer.scaleX;
+          this.worldContainer
+            .scaleX;
 
         const multiplier =
           deltaY > 0
@@ -461,7 +831,9 @@ class WorldScene extends Phaser.Scene {
 
         const newScale =
           Phaser.Math.Clamp(
-            oldScale * multiplier,
+            oldScale *
+              multiplier,
+
             this.getMinimumScale(),
             MAX_SCALE
           );
@@ -512,12 +884,8 @@ class WorldScene extends Phaser.Scene {
       distance;
 
     this.pinchStartScale =
-      this.worldContainer.scaleX;
-
-    /*
-    The midpoint at the instant the pinch begins.
-    THIS NEVER CHANGES DURING THE GESTURE.
-    */
+      this.worldContainer
+        .scaleX;
 
     this.pinchScreenX =
       (
@@ -531,26 +899,21 @@ class WorldScene extends Phaser.Scene {
         pointerB.y
       ) / 2;
 
-    /*
-    Convert that screen position into a coordinate
-    inside the unscaled world.
-
-    This is the exact location we keep stationary.
-    */
-
     this.pinchLocalX =
       (
         this.pinchScreenX -
         this.worldContainer.x
       ) /
-      this.worldContainer.scaleX;
+      this.worldContainer
+        .scaleX;
 
     this.pinchLocalY =
       (
         this.pinchScreenY -
         this.worldContainer.y
       ) /
-      this.worldContainer.scaleY;
+      this.worldContainer
+        .scaleY;
 
     this.pinchActive =
       true;
@@ -562,17 +925,11 @@ class WorldScene extends Phaser.Scene {
   ) {
     if (
       !this.pinchActive ||
-      this.pinchStartDistance <= 0
+      this.pinchStartDistance <=
+      0
     ) {
       return;
     }
-
-    /*
-    ONLY distance matters.
-
-    Finger movement left/right/up/down is ignored.
-    It cannot pan the map.
-    */
 
     const currentDistance =
       Phaser.Math.Distance.Between(
@@ -601,19 +958,9 @@ class WorldScene extends Phaser.Scene {
         MAX_SCALE
       );
 
-    /*
-    Scale the world.
-    */
     this.worldContainer.setScale(
       newScale
     );
-
-    /*
-    Then put the SAME map coordinate back under
-    the SAME screen coordinate where the pinch began.
-
-    Nothing else moves.
-    */
 
     this.worldContainer.x =
       this.pinchScreenX -
@@ -624,23 +971,11 @@ class WorldScene extends Phaser.Scene {
       this.pinchScreenY -
       this.pinchLocalY *
         newScale;
-
-    /*
-    Do NOT clamp here.
-
-    Clamping while fingers are actively zooming
-    is exactly what caused edge bouncing before.
-
-    We allow the zoom operation itself to remain
-    completely stable.
-
-    Position is constrained after the gesture.
-    */
   }
 
   /*
   ==================================================
-  GENERIC SCALE AROUND SCREEN POINT
+  SCALE HELPER
   ==================================================
   */
 
@@ -650,7 +985,8 @@ class WorldScene extends Phaser.Scene {
     newScale
   ) {
     const oldScale =
-      this.worldContainer.scaleX;
+      this.worldContainer
+        .scaleX;
 
     const localX =
       (
@@ -688,12 +1024,6 @@ class WorldScene extends Phaser.Scene {
   */
 
   getMinimumScale() {
-    /*
-    At maximum zoom-out:
-
-    world width == screen width
-    */
-
     return (
       this.scale.width /
       this.worldPixelWidth
@@ -715,24 +1045,13 @@ class WorldScene extends Phaser.Scene {
 
     const scaledWorldWidth =
       this.worldPixelWidth *
-      this.worldContainer.scaleX;
+      this.worldContainer
+        .scaleX;
 
     const scaledWorldHeight =
       this.worldPixelHeight *
-      this.worldContainer.scaleY;
-
-    /*
-    Your requested rule:
-
-    A world edge may move as far as
-    the center of the screen.
-
-    LEFT EDGE:
-    may move to screen center.
-
-    RIGHT EDGE:
-    may move to screen center.
-    */
+      this.worldContainer
+        .scaleY;
 
     const maxX =
       screenWidth / 2;
@@ -779,12 +1098,8 @@ class WorldScene extends Phaser.Scene {
     }
 
     const scale =
-      this.worldContainer.scaleX;
-
-    /*
-    Convert screen coordinates into
-    coordinates inside the map container.
-    */
+      this.worldContainer
+        .scaleX;
 
     const localX =
       (
@@ -843,16 +1158,21 @@ class WorldScene extends Phaser.Scene {
 }
 
 export const gameConfig = {
-  type: Phaser.AUTO,
+  type:
+    Phaser.AUTO,
 
-  parent: "game",
+  parent:
+    "game",
 
   backgroundColor:
     "#111111",
 
   render: {
-    pixelArt: true,
-    antialias: false
+    pixelArt:
+      true,
+
+    antialias:
+      false
   },
 
   scale: {
@@ -864,7 +1184,8 @@ export const gameConfig = {
   },
 
   input: {
-    activePointers: 3
+    activePointers:
+      3
   },
 
   scene: [
