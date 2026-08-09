@@ -150,10 +150,7 @@ function scatterTiles(
       ) %
       4294967296;
 
-    return (
-      value /
-      4294967296
-    );
+    return value / 4294967296;
   }
 
   for (
@@ -175,9 +172,7 @@ function scatterTiles(
         continue;
       }
 
-      if (
-        random() < density
-      ) {
+      if (random() < density) {
         worldMap[tileY][tileX] =
           tileType;
       }
@@ -345,10 +340,6 @@ paintRect(
   TILE_TYPES.STARTER_PARK
 );
 
-/*
-Starter entrance path
-*/
-
 paintRect(
   248,
   350,
@@ -356,10 +347,6 @@ paintRect(
   26,
   TILE_TYPES.PARK
 );
-
-/*
-Park frontage
-*/
 
 paintRect(
   0,
@@ -391,10 +378,6 @@ paintRect(
   TILE_TYPES.GRASS
 );
 
-/*
-Pet Shop
-*/
-
 paintRect(
   32,
   392,
@@ -402,10 +385,6 @@ paintRect(
   28,
   TILE_TYPES.PET_SHOP
 );
-
-/*
-Vet
-*/
 
 paintRect(
   88,
@@ -415,10 +394,6 @@ paintRect(
   TILE_TYPES.VET
 );
 
-/*
-Groomer
-*/
-
 paintRect(
   144,
   392,
@@ -426,10 +401,6 @@ paintRect(
   28,
   TILE_TYPES.GROOMER
 );
-
-/*
-Breeder
-*/
 
 paintRect(
   200,
@@ -439,10 +410,6 @@ paintRect(
   TILE_TYPES.BREEDER
 );
 
-/*
-Town Plaza
-*/
-
 paintRect(
   252,
   390,
@@ -450,10 +417,6 @@ paintRect(
   32,
   TILE_TYPES.PLAZA
 );
-
-/*
-Trainer
-*/
 
 paintRect(
   320,
@@ -463,10 +426,6 @@ paintRect(
   TILE_TYPES.TRAINER
 );
 
-/*
-Pet Hotel
-*/
-
 paintRect(
   376,
   392,
@@ -475,10 +434,6 @@ paintRect(
   TILE_TYPES.PET_HOTEL
 );
 
-/*
-Dog Walker
-*/
-
 paintRect(
   432,
   392,
@@ -486,10 +441,6 @@ paintRect(
   28,
   TILE_TYPES.DOG_WALKER
 );
-
-/*
-Photography
-*/
 
 paintRect(
   476,
@@ -543,10 +494,6 @@ paintRect(
   TILE_TYPES.RESIDENTIAL_GRASS
 );
 
-/*
-Player home
-*/
-
 paintRect(
   34,
   474,
@@ -554,10 +501,6 @@ paintRect(
   26,
   TILE_TYPES.PLAYER_HOME
 );
-
-/*
-Houses
-*/
 
 paintRect(
   88,
@@ -591,10 +534,6 @@ paintRect(
   TILE_TYPES.HOUSE
 );
 
-/*
-Apartments
-*/
-
 paintRect(
   278,
   470,
@@ -610,10 +549,6 @@ paintRect(
   32,
   TILE_TYPES.APARTMENTS
 );
-
-/*
-More housing
-*/
 
 paintRect(
   430,
@@ -771,24 +706,31 @@ export function getTileType(
 
 /*
 ==================================================
-DOG DATA
+DOG SPRITE FORMAT
 ==================================================
 
-Procedural pet sprites use 32×32 ASCII frames.
-
-Characters:
+All dog sprites are 32×32 ASCII pixel maps.
 
 . = transparent
+O = outline / black internal detail
 B = base coat
 C = cream / secondary coat
-D = dark details
 
-The dark outer outline is NOT stored here.
-game.js will generate that automatically around
-the visible pixels.
+Unlike the previous version, the outline is
+AUTHORED directly into the sprite.
 
-This means coat colors can later be replaced
-by an individual dog's genetics.
+game.js should NOT generate an outline anymore.
+
+This gives us precise control over:
+- silhouette
+- ears
+- muzzle
+- eyes
+- mouth
+- legs
+- tail
+- internal separation lines
+
 ==================================================
 */
 
@@ -804,16 +746,10 @@ export const SHIBA = {
   spriteSize: 32,
 
   colors: {
-    base: "#c96f32",
-    cream: "#f2d6a2",
-    detail: "#25170f",
-    outline: "#3a2418"
+    base: "#d98732",
+    cream: "#f6dfac",
+    outline: "#2b1b12"
   },
-
-  /*
-  These will later become proper genetic traits.
-  For now they describe our prototype Shiba.
-  */
 
   traits: {
     size: "medium",
@@ -823,26 +759,20 @@ export const SHIBA = {
     tailShape: "curled"
   },
 
-  /*
-  Number of milliseconds each walking
-  animation frame is displayed.
-  */
-
-  walkFrameDuration: 140
+  walkFrameDuration: 120
 };
 
 /*
 ==================================================
 SHIBA SIDE WALK
 
-Faces RIGHT.
+Faces LEFT.
 
-For walking left, game.js should simply mirror
-the generated sprite horizontally.
+The reference art naturally reads best facing
+left, so these authored frames also face left.
 
-The four frames form:
-
-1 → 2 → 3 → 4 → 1
+game.js can mirror them with setFlipX(true)
+when the dog walks right.
 
 ==================================================
 */
@@ -851,39 +781,39 @@ export const SHIBA_SIDE_WALK = [
 
   /*
   FRAME 1
-  Legs extended.
+  Standing/contact pose
   */
 
   [
     "................................",
     "................................",
-    ".......................B........",
-    "......................BBB.......",
-    ".....................BBBBB......",
-    "....................BBBBBBB.....",
-    ".....BBB............BBBBBBB.....",
-    "...BBBBBB..........BBBBBBBB.....",
-    "..BBBBBBBB........BBBBBBBBBB....",
-    "..BBB..BBBB......BBBBBBBBBBBB...",
-    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
-    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
-    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
-    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
-    "........BBBBBBBBBBBBBBBBBCCCCB..",
-    ".........BBBBBBBBBBBBBBBBBCCBB..",
-    "..........BBBBBBBBBBBBBBBBBBB...",
-    "...........BBBBBBBBBBBBBBBBB....",
-    "............BBBBBBBBBBBBBBB.....",
-    ".............BBBBBBBBBBBBB......",
-    "............BBB.......BBB.......",
-    "...........BBBB.......BBBB......",
-    "..........BBB...........BBB.....",
-    ".........BBB.............BBB....",
-    ".........BB...............BB....",
-    "................................",
-    "................................",
+    ".....OO....OO...................",
+    "....OBBO..OBBO..................",
+    "....OBBO..OCBO..................",
+    "...OBBBBBBBBBBO.................",
+    "..OBBBBBBBBBBBBO................",
+    ".OBBCCCBOBBBBBBBO.....OOOO......",
+    "OBBCCCCOBBBBBBBBBBO..OCCCCO.....",
+    "OBCCCCCCBBBBBBBBBBBOOCBBBBCO....",
+    "OBOCCCCBBBBBBBBBBBBBBBOOOBCO....",
+    ".OCCCCCCBBBBBBBBBBBBBBBBBBBO....",
+    "..OCCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBCCCCCCBBBBBBBBBBBBBO...",
+    "...OBBBBCCCCCCCCBBBBBBBBBBBBO...",
+    "..OBBBBBOOCCCCOOOBBBBBOOBBBBO...",
+    "..OBBBO...OCCO...OBBBO..OBBBO...",
+    ".OBBBO....OCCO...OBBBO..OBBBO...",
+    ".OBBO.....OCCO...OBBO...OBBO....",
+    "OBBO......OCCO...OBBO...OBBO....",
+    "OOO........OO.....OO.....OOO.....",
     "................................",
     "................................",
     "................................"
@@ -891,38 +821,38 @@ export const SHIBA_SIDE_WALK = [
 
   /*
   FRAME 2
-  Legs passing beneath body.
+  Front stride
   */
 
   [
     "................................",
     "................................",
-    ".......................B........",
-    "......................BBB.......",
-    ".....................BBBBB......",
-    "....................BBBBBBB.....",
-    ".....BBB............BBBBBBB.....",
-    "...BBBBBB..........BBBBBBBB.....",
-    "..BBBBBBBB........BBBBBBBBBB....",
-    "..BBB..BBBB......BBBBBBBBBBBB...",
-    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
-    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
-    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
-    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
-    "........BBBBBBBBBBBBBBBBBCCCCB..",
-    ".........BBBBBBBBBBBBBBBBBCCBB..",
-    "..........BBBBBBBBBBBBBBBBBBB...",
-    "...........BBBBBBBBBBBBBBBBB....",
-    "............BBBBBBBBBBBBBBB.....",
-    ".............BBBBBBBBBBBBB......",
-    ".............BBB.....BBB........",
-    ".............BBBB...BBBB........",
-    "..............BBB...BBB.........",
-    "...............BB...BB..........",
-    "...............BB...BB..........",
-    "................................",
+    ".....OO....OO...................",
+    "....OBBO..OBBO..................",
+    "....OBBO..OCBO..................",
+    "...OBBBBBBBBBBO.................",
+    "..OBBBBBBBBBBBBO................",
+    ".OBBCCCBOBBBBBBBO.....OOOO......",
+    "OBBCCCCOBBBBBBBBBBO..OCCCCO.....",
+    "OBCCCCCCBBBBBBBBBBBOOCBBBBCO....",
+    "OBOCCCCBBBBBBBBBBBBBBBOOOBCO....",
+    ".OCCCCCCBBBBBBBBBBBBBBBBBBBO....",
+    "..OCCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBCCCCCCBBBBBBBBBBBBBO...",
+    "...OBBBBCCCCCCCCBBBBBBBBBBBBO...",
+    "..OBBBOOOCCCCCCOOOBBBBOOBBBBO...",
+    ".OBBBO...OCCCCO...OBBBO..OBBBO..",
+    "OBBBO.....OCCO.....OBBO..OBBBO..",
+    "OBBO......OCCO......OBO...OBBO..",
+    "OOO........OO........OO....OOO...",
     "................................",
     "................................",
     "................................",
@@ -931,38 +861,38 @@ export const SHIBA_SIDE_WALK = [
 
   /*
   FRAME 3
-  Opposite legs extended.
+  Passing pose
   */
 
   [
     "................................",
     "................................",
-    ".......................B........",
-    "......................BBB.......",
-    ".....................BBBBB......",
-    "....................BBBBBBB.....",
-    ".....BBB............BBBBBBB.....",
-    "...BBBBBB..........BBBBBBBB.....",
-    "..BBBBBBBB........BBBBBBBBBB....",
-    "..BBB..BBBB......BBBBBBBBBBBB...",
-    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
-    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
-    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
-    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
-    "........BBBBBBBBBBBBBBBBBCCCCB..",
-    ".........BBBBBBBBBBBBBBBBBCCBB..",
-    "..........BBBBBBBBBBBBBBBBBBB...",
-    "...........BBBBBBBBBBBBBBBBB....",
-    "............BBBBBBBBBBBBBBB.....",
-    ".............BBBBBBBBBBBBB......",
-    "..............BBB....BBB........",
-    ".............BBBB....BBBB.......",
-    "............BBB........BBB......",
-    "...........BBB..........BBB.....",
-    "..........BB............BB......",
-    "................................",
+    ".....OO....OO...................",
+    "....OBBO..OBBO..................",
+    "....OBBO..OCBO..................",
+    "...OBBBBBBBBBBO.................",
+    "..OBBBBBBBBBBBBO................",
+    ".OBBCCCBOBBBBBBBO.....OOOO......",
+    "OBBCCCCOBBBBBBBBBBO..OCCCCO.....",
+    "OBCCCCCCBBBBBBBBBBBOOCBBBBCO....",
+    "OBOCCCCBBBBBBBBBBBBBBBOOOBCO....",
+    ".OCCCCCCBBBBBBBBBBBBBBBBBBBO....",
+    "..OCCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBCCCCCCBBBBBBBBBBBBBO...",
+    "...OBBBBCCCCCCCCBBBBBBBBBBBBO...",
+    "...OBBBBBOCCCCOOBBBBOOBBBBBO....",
+    "...OBBBBO.OCCO.OBBBO..OBBBBO....",
+    "...OBBBO..OCCO..OBBO..OBBBO.....",
+    "...OBBO...OCCO..OBBO...OBBO.....",
+    "....OO.....OO....OO.....OO.......",
     "................................",
     "................................",
     "................................",
@@ -971,38 +901,118 @@ export const SHIBA_SIDE_WALK = [
 
   /*
   FRAME 4
-  Second passing pose.
+  Opposite stride
   */
 
   [
     "................................",
     "................................",
-    ".......................B........",
-    "......................BBB.......",
-    ".....................BBBBB......",
-    "....................BBBBBBB.....",
-    ".....BBB............BBBBBBB.....",
-    "...BBBBBB..........BBBBBBBB.....",
-    "..BBBBBBBB........BBBBBBBBBB....",
-    "..BBB..BBBB......BBBBBBBBBBBB...",
-    "...BB...BBBBBBBBBBBBBBBBBBBBB...",
-    "...BBBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    "....BBBBBBBBBBBBBBBBBBBBBBBBBB..",
-    ".....BBBBBBBBBBBBBBBBBBBBBCCBB..",
-    "......BBBBBBBBBBBBBBBBBBBCCCCB..",
-    ".......BBBBBBBBBBBBBBBBBBCCDCB..",
-    "........BBBBBBBBBBBBBBBBBCCCCB..",
-    ".........BBBBBBBBBBBBBBBBBCCBB..",
-    "..........BBBBBBBBBBBBBBBBBBB...",
-    "...........BBBBBBBBBBBBBBBBB....",
-    "............BBBBBBBBBBBBBBB.....",
-    ".............BBBBBBBBBBBBB......",
-    "............BBB......BBB........",
-    "............BBBB....BBBB........",
-    ".............BBB....BBB.........",
-    "..............BB....BB..........",
-    "..............BB....BB..........",
+    ".....OO....OO...................",
+    "....OBBO..OBBO..................",
+    "....OBBO..OCBO..................",
+    "...OBBBBBBBBBBO.................",
+    "..OBBBBBBBBBBBBO................",
+    ".OBBCCCBOBBBBBBBO.....OOOO......",
+    "OBBCCCCOBBBBBBBBBBO..OCCCCO.....",
+    "OBCCCCCCBBBBBBBBBBBOOCBBBBCO....",
+    "OBOCCCCBBBBBBBBBBBBBBBOOOBCO....",
+    ".OCCCCCCBBBBBBBBBBBBBBBBBBBO....",
+    "..OCCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBCCCCCCBBBBBBBBBBBBBO...",
+    "...OBBBBCCCCCCCCBBBBBBBBBBBBO...",
+    "...OBBBBOOCCCCOOOBBBBBOOBBBBO...",
+    "...OBBBO..OCCO...OBBBO..OBBBO...",
+    "..OBBBO...OCCO....OBBBO..OBBBO..",
+    ".OBBBO....OCCO.....OBBO...OBBO..",
+    "OOO........OO.......OO.....OOO...",
     "................................",
+    "................................",
+    "................................",
+    "................................"
+  ],
+
+  /*
+  FRAME 5
+  Second passing pose
+  */
+
+  [
+    "................................",
+    "................................",
+    ".....OO....OO...................",
+    "....OBBO..OBBO..................",
+    "....OBBO..OCBO..................",
+    "...OBBBBBBBBBBO.................",
+    "..OBBBBBBBBBBBBO................",
+    ".OBBCCCBOBBBBBBBO.....OOOO......",
+    "OBBCCCCOBBBBBBBBBBO..OCCCCO.....",
+    "OBCCCCCCBBBBBBBBBBBOOCBBBBCO....",
+    "OBOCCCCBBBBBBBBBBBBBBBOOOBCO....",
+    ".OCCCCCCBBBBBBBBBBBBBBBBBBBO....",
+    "..OCCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBCCCCCCBBBBBBBBBBBBBO...",
+    "...OBBBBCCCCCCCCBBBBBBBBBBBBO...",
+    "...OBBBBOOCCCCOOOBBBBOOBBBBO....",
+    "...OBBBO..OCCO....OBBBO.OBBBO...",
+    "...OBBO...OCCO.....OBBO.OBBBO...",
+    "...OBBO...OCCO......OBBO.OBBO...",
+    "....OO.....OO........OO...OO.....",
+    "................................",
+    "................................",
+    "................................",
+    "................................"
+  ],
+
+  /*
+  FRAME 6
+  Rear stride
+  */
+
+  [
+    "................................",
+    "................................",
+    ".....OO....OO...................",
+    "....OBBO..OBBO..................",
+    "....OBBO..OCBO..................",
+    "...OBBBBBBBBBBO.................",
+    "..OBBBBBBBBBBBBO................",
+    ".OBBCCCBOBBBBBBBO.....OOOO......",
+    "OBBCCCCOBBBBBBBBBBO..OCCCCO.....",
+    "OBCCCCCCBBBBBBBBBBBOOCBBBBCO....",
+    "OBOCCCCBBBBBBBBBBBBBBBOOOBCO....",
+    ".OCCCCCCBBBBBBBBBBBBBBBBBBBO....",
+    "..OCCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCCBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCCBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OCBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBBBBBBBBBBBBBBBBBBBO....",
+    "...OBBBBBCCCCCCBBBBBBBBBBBBBO...",
+    "...OBBBBCCCCCCCCBBBBBBBBBBBBO...",
+    "...OBBBBOOCCCCOOOBBBBBOOBBBBO...",
+    "...OBBBO..OCCO.....OBBBO.OBBBO..",
+    "...OBBO...OCCO......OBBBO.OBBO..",
+    "...OBBO...OCCO.......OBBO.OBBO..",
+    "....OO.....OO.........OO...OO....",
     "................................",
     "................................",
     "................................",
@@ -1012,21 +1022,82 @@ export const SHIBA_SIDE_WALK = [
 
 /*
 ==================================================
-FUTURE DOG SYSTEM
-
-Eventually we can add reusable components such as:
-
-DOG_BODIES
-DOG_HEADS
-DOG_EARS
-DOG_TAILS
-DOG_MARKINGS
-DOG_COAT_COLORS
-
-Then breeds will define ranges / probabilities
-rather than needing completely separate sprites.
-
-For now, the Shiba is intentionally self-contained
-so we can prove that procedural pixel dogs work.
+SHIBA LYING DOWN
 ==================================================
 */
+
+export const SHIBA_LIE = [
+  "................................",
+  "................................",
+  ".....OO....OO...................",
+  "....OBBO..OBBO..................",
+  "....OBBO..OCBO..................",
+  "...OBBBBBBBBBBO.................",
+  "..OBBBBBBBBBBBBO................",
+  ".OBBCCCBOBBBBBBBO...............",
+  "OBBCCCCOBBBBBBBBBBO.....OOOO....",
+  "OBCCCCCCBBBBBBBBBBBBO..OCCCCO...",
+  "OBOCCCCBBBBBBBBBBBBBBOOCBBBBBO..",
+  ".OCCCCCCBBBBBBBBBBBBBBBBBOOBCO..",
+  "..OCCCCBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OCCCBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OCCBBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OCCBBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OCBBBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OCBBBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OBBBBBBBBBBBBBBBBBBBBBBBBO...",
+  "...OBBBBBCCCCCCCCBBBBBBBBBBBBO...",
+  "...OBBBBCCCCCCCCCCBBBBBBBBBBBO...",
+  "...OBBBCCCCCCCCCCCCBBBBBBBBBBO...",
+  "..OBBBCCCCCCOOCCCCCCBBBBBBBBO...",
+  "..OBBBBCCCCO..OCCCCBBBBBBBBBO...",
+  "...OOOOOOOO....OOOOOOOOOOOOOO....",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................"
+];
+
+/*
+==================================================
+SHIBA SITTING
+==================================================
+*/
+
+export const SHIBA_SIT = [
+  "................................",
+  "................................",
+  "......OO....OO..................",
+  ".....OBBO..OBBO.................",
+  ".....OBBO..OCBO.................",
+  "....OBBBBBBBBBBO................",
+  "...OBBBBBBBBBBBBO...............",
+  "..OBBCCCBOBBBBBBBO..............",
+  ".OBBCCCCOBBBBBBBBBBO............",
+  "OBCCCCCCBBBBBBBBBBBBBO..........",
+  "OBOCCCCBBBBBBBBBBBBBBO..........",
+  ".OCCCCCCBBBBBBBBBBBBBO..........",
+  "..OCCCCBBBBBBBBBBBBBBO..........",
+  "...OCCCBBBBBBBBBBBBBBO..........",
+  "...OCCBBBBBBBBBBBBBBBO..........",
+  "...OCCBBBBBBBBBBBBBBBO..........",
+  "...OCBBBBBBBBBBBBBBBBO..........",
+  "...OCBBBBBBBBBBBBBBBBO..........",
+  "...OBBBBBBBBBBBBBBBBBO..........",
+  "...OBBBBBBBBBBBBBBBBBO..OOOO....",
+  "...OBBBBBBBBBBBBBBBBBBOOCCCCO...",
+  "...OBBBBBBBBBBBBBBBBBBOCBBBBBO..",
+  "...OBBBBBBBBBBBBBBBBBBBBBOBBCO..",
+  "...OBBBBCCCCBBBBBBBBBBBBBBBOO...",
+  "...OBBBCCCCCCBBBBBBBBBBBBBO.....",
+  "...OBBBCCCCCCBBBBBBBBBBBBO......",
+  "...OBBOOCCCCOOBBBBBBBBBBO.......",
+  "..OBBO..OOOO..OBBBBBBBBO........",
+  "..OOOO.........OOOOOOOO.........",
+  "................................",
+  "................................",
+  "................................"
+];
