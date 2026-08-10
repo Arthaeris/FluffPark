@@ -64,6 +64,7 @@ export const TILE_TYPES = {
   LOCKED_LOT: "Locked Lot",
   TOWN_BUILDING: "Next Town",
 
+  SHELTER: "Animal Shelter",
   PLAYER_HOME: "Player Home",
   HOUSE: "House",
   APARTMENTS: "Apartments"
@@ -107,6 +108,7 @@ export const TILE_COLORS = {
   [TILE_TYPES.LOCKED_LOT]: 0x9aa08e,
   [TILE_TYPES.TOWN_BUILDING]: 0xb8b0a0,
 
+  [TILE_TYPES.SHELTER]: 0xd8ece4,
   [TILE_TYPES.PLAYER_HOME]: 0xf4e6c4,
   [TILE_TYPES.HOUSE]: 0xeadfc6,
   [TILE_TYPES.APARTMENTS]: 0xd9cbb4
@@ -370,6 +372,9 @@ export const BUILDINGS = [
   { x: 104, y: 297, w: 22, h: 13, type: T.DOG_WALKER,   style: "shopBlue" },
   { x: 130, y: 297, w: 22, h: 13, type: T.PHOTO_STUDIO, style: "shopPurple" },
 
+  /* park shelter */
+  { x: 14,  y: 257, w: 20, h: 11, type: T.SHELTER, style: "shelter" },
+
   /* residential */
   { x: 8,   y: 332, w: 22, h: 12, type: T.PLAYER_HOME,  style: "home" },
   { x: 36,  y: 334, w: 14, h: 10, type: T.HOUSE,        style: "house1" },
@@ -430,6 +435,7 @@ export const MAP_LABELS = [
   { text: "PET PARK", x: 28, y: 215 },
   { text: "STARTER PARK", x: 77, y: 236 },
 
+  { text: "SHELTER", x: 24, y: 270 },
   { text: "PET SHOP", x: 19, y: 295 },
   { text: "VET", x: 45, y: 295 },
   { text: "GROOMER", x: 115, y: 295 },
@@ -443,6 +449,32 @@ export const MAP_LABELS = [
   { text: "MAIN STREET", x: 80, y: 321 },
   { text: "RESIDENTIAL", x: 80, y: 349 },
   { text: "PLAYER HOME", x: 19, y: 346 }
+];
+
+/*
+==================================================
+NPC STROLL ROUTES (tile coordinates)
+==================================================
+*/
+
+export const NPC_ROUTES = [
+  /* main street, west <-> east on the sidewalk */
+  [[2, 315], [157, 315]],
+
+  /* plaza up the main path into the park, then west */
+  [[78.5, 313], [78.5, 256], [20, 255.5]],
+
+  /* plaza up the main path, then east to the pond */
+  [[78.5, 313], [78.5, 256], [140, 255.5]],
+
+  /* plaza loop */
+  [[66, 313], [66, 285], [92, 285], [92, 313]],
+
+  /* park visitor: cross path stroll */
+  [[16, 255.5], [144, 255.5]],
+
+  /* forest hike up to the bridge and back area */
+  [[78.5, 256], [78.5, 160], [78.5, 256]]
 ];
 
 /*
