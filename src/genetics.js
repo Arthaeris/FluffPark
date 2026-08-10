@@ -355,6 +355,40 @@ export function breed(parentA, parentB) {
   };
 }
 
+/*
+Breeding preview for the UI: which trait values
+are possible, and whether the coat is "unstable"
+(mutation boost active).
+*/
+export function breedPreview(parentA, parentB) {
+  const possible = {};
+
+  for (const key of GENE_KEYS) {
+    const values = new Set();
+
+    for (const a of parentA.genes[key]) {
+      for (const b of parentB.genes[key]) {
+        const order = DOMINANCE[key];
+
+        values.add(
+          order.indexOf(a) <= order.indexOf(b) ? a : b
+        );
+      }
+    }
+
+    possible[key] = [...values];
+  }
+
+  const colA = coloration(parentA);
+  const colB = coloration(parentB);
+
+  const boosted =
+    phenotype(parentA).coat === phenotype(parentB).coat &&
+    colA.secondary !== colB.secondary;
+
+  return { possible, boosted };
+}
+
 /* human readable coloration, e.g. "Sakura / Milk" */
 export function colorationLabel(genome) {
   const col = coloration(genome);
