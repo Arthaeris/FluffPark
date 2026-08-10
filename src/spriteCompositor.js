@@ -98,14 +98,14 @@ export function buildPalette(col) {
 
 const FILL = new Set(["O", "B", "C", "M", "E", "N", "D", "S"]);
 
-function emptyGrid() {
+export function emptyGrid() {
   return Array.from(
     { length: SPRITE_SIZE },
     () => new Array(SPRITE_SIZE).fill(".")
   );
 }
 
-function gridFromRows(rows) {
+export function gridFromRows(rows) {
   const g = emptyGrid();
 
   for (let y = 0; y < SPRITE_SIZE; y++) {
@@ -120,7 +120,7 @@ function gridFromRows(rows) {
 }
 
 /* Teil auf Grid stempeln (nur Nicht-Punkte), mit Offset */
-function stamp(dst, rows, dx = 0, dy = 0) {
+export function stamp(dst, rows, dx = 0, dy = 0) {
   for (let y = 0; y < SPRITE_SIZE; y++) {
     const row = rows[y] ?? "";
 
@@ -171,7 +171,7 @@ function applyMask(dst, rows, dx = 0, dy = 0) {
 }
 
 /* Automatische Außenkontur um die fertige Silhouette */
-function outline(g) {
+export function outline(g) {
   const out = g.map((row) => row.slice());
 
   for (let y = 0; y < SPRITE_SIZE; y++) {
