@@ -411,6 +411,18 @@ export class DogCard {
 
     this.image = this.scene.add.image(0, 0, key);
     this.image.setOrigin(0.5, 1).setDepth(10000).setScrollFactor(0);
+
+    /* swallow map input underneath the card */
+    this.image.setInteractive();
+
+    this.image.on("pointerdown", (pointer, lx, ly, event) => {
+      if (event) event.stopPropagation();
+    });
+
+    this.image.on("pointerup", (pointer, lx, ly, event) => {
+      if (event) event.stopPropagation();
+    });
+
     this.key = key;
     this.layout();
   }
@@ -428,6 +440,18 @@ export class DogCard {
     this.image.setScale(scale);
     this.image.x = sw / 2;
     this.image.y = sh - 8;
+  }
+
+  /* top-right corner in screen coordinates (for the close button) */
+  topRight() {
+    if (!this.image) {
+      return null;
+    }
+
+    return {
+      x: this.image.x + this.image.displayWidth / 2,
+      y: this.image.y - this.image.displayHeight
+    };
   }
 
   hide() {
@@ -506,6 +530,56 @@ export function createBreedButton(scene, onClick) {
 
 /*
 ==================================================
+CLOSE BUTTON (small square with an X)
+==================================================
+*/
+
+export function createCloseButton(scene, onClick) {
+  const s = 14 * P;
+
+  const texture = makeCanvasTexture(scene, "ui-close", s, s);
+  const ctx = texture.context;
+
+  drawPanel(ctx, 0, 0, s, s, {
+    fill: "#c96a4a",
+    outline: UI_COLORS.outline
+  });
+
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(2 * P, s - 3 * P, s - 4 * P, P);
+
+  /* pixel X */
+  ctx.strokeStyle = "#fff2ea";
+  ctx.lineWidth = 2 * P;
+  ctx.lineCap = "square";
+  ctx.beginPath();
+  ctx.moveTo(4.5 * P, 4.5 * P);
+  ctx.lineTo(s - 4.5 * P, s - 4.5 * P);
+  ctx.moveTo(s - 4.5 * P, 4.5 * P);
+  ctx.lineTo(4.5 * P, s - 4.5 * P);
+  ctx.stroke();
+
+  texture.refresh();
+
+  const image = scene.add.image(0, 0, "ui-close");
+
+  image.setOrigin(0.5, 0.5).setDepth(10002).setScrollFactor(0);
+  image.setInteractive({ useHandCursor: true });
+
+  image.on("pointerdown", (pointer, lx, ly, event) => {
+    if (event) event.stopPropagation();
+  });
+
+  image.on("pointerup", (pointer, lx, ly, event) => {
+    if (event) event.stopPropagation();
+    onClick();
+  });
+
+  return image;
+}
+
+/*
+==================================================
 TOAST (top-center announcement)
 ==================================================
 */
@@ -546,6 +620,15 @@ export class Toast {
 
     this.image = this.scene.add.image(0, 0, key);
     this.image.setOrigin(0.5, 0).setDepth(10002).setScrollFactor(0);
+
+    /* tap to dismiss */
+    this.image.setInteractive({ useHandCursor: true });
+
+    this.image.on("pointerup", (pointer, lx, ly, event) => {
+      if (event) event.stopPropagation();
+      this.hide();
+    });
+
     this.key = key;
     this.layout();
 
