@@ -21,6 +21,7 @@ import { Dog } from "./dog.js";
 import {
   createHud,
   createBreedButton,
+  createCloseButton,
   DogCard,
   Toast
 } from "./ui.js";
@@ -314,6 +315,19 @@ class WorldScene extends Phaser.Scene {
 
     this.breedButton.setVisible(false);
 
+    this.closeButton = createCloseButton(this, () => {
+      this.clearSelection();
+    });
+
+    this.closeButton.setVisible(false);
+
+    /* ESC also closes the card */
+    if (this.input.keyboard) {
+      this.input.keyboard.on("keydown-ESC", () => {
+        this.clearSelection();
+      });
+    }
+
     this.hud.update({
       dogs: this.dogs.length,
       tile: "Touch a tile",
@@ -342,12 +356,31 @@ class WorldScene extends Phaser.Scene {
       this.breedButton.y = cardTop - 6;
       this.breedButton.baseY = this.breedButton.y;
     }
+
+    if (this.closeButton) {
+      const corner = this.dogCard?.topRight?.();
+
+      if (corner) {
+        this.closeButton.x = corner.x - 4;
+        this.closeButton.y = corner.y + 4;
+      }
+    }
+  }
+
+  clearSelection() {
+    for (const dog of this.selectedDogs) {
+      dog.setSelected(false);
+    }
+
+    this.selectedDogs = [];
+    this.refreshSelectionUi();
   }
 
   refreshSelectionUi() {
     if (this.selectedDogs.length === 0) {
       this.dogCard.hide();
       this.breedButton.setVisible(false);
+      this.closeButton.setVisible(false);
       this.layoutInterface();
       return;
     }
@@ -362,6 +395,8 @@ class WorldScene extends Phaser.Scene {
     this.breedButton.setVisible(
       this.selectedDogs.length === 2
     );
+
+    this.closeButton.setVisible(true);
 
     this.layoutInterface();
   }
