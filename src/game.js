@@ -582,6 +582,8 @@ class WorldScene extends Phaser.Scene {
 
     this.worldContainer.y =
       this.pinchScreenY - this.pinchLocalY * newScale;
+
+    this.clampWorldPosition();
   }
 
   /*
@@ -612,7 +614,14 @@ class WorldScene extends Phaser.Scene {
   */
 
   getMinimumScale() {
-    return this.scale.width / this.worldPixelWidth;
+    /*
+    The world must always cover the whole screen,
+    so the view can never leave the map.
+    */
+    return Math.max(
+      this.scale.width / this.worldPixelWidth,
+      this.scale.height / this.worldPixelHeight
+    );
   }
 
   /*
@@ -622,6 +631,12 @@ class WorldScene extends Phaser.Scene {
   */
 
   clampWorldPosition() {
+    /*
+    Hard camera bounds: the screen edges never
+    leave the world map. If the world is smaller
+    than the screen on one axis (should not happen
+    thanks to getMinimumScale), center it.
+    */
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
 
@@ -631,22 +646,27 @@ class WorldScene extends Phaser.Scene {
     const scaledWorldHeight =
       this.worldPixelHeight * this.worldContainer.scaleY;
 
-    const maxX = screenWidth / 2;
-    const minX = screenWidth / 2 - scaledWorldWidth;
-    const maxY = screenHeight / 2;
-    const minY = screenHeight / 2 - scaledWorldHeight;
+    if (scaledWorldWidth <= screenWidth) {
+      this.worldContainer.x =
+        (screenWidth - scaledWorldWidth) / 2;
+    } else {
+      this.worldContainer.x = Phaser.Math.Clamp(
+        this.worldContainer.x,
+        screenWidth - scaledWorldWidth,
+        0
+      );
+    }
 
-    this.worldContainer.x = Phaser.Math.Clamp(
-      this.worldContainer.x,
-      minX,
-      maxX
-    );
-
-    this.worldContainer.y = Phaser.Math.Clamp(
-      this.worldContainer.y,
-      minY,
-      maxY
-    );
+    if (scaledWorldHeight <= screenHeight) {
+      this.worldContainer.y =
+        (screenHeight - scaledWorldHeight) / 2;
+    } else {
+      this.worldContainer.y = Phaser.Math.Clamp(
+        this.worldContainer.y,
+        screenHeight - scaledWorldHeight,
+        0
+      );
+    }
   }
 
   /*
