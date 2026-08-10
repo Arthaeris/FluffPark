@@ -28,6 +28,17 @@ export class Dog {
       this.coloration
     );
 
+    /* care (Nintendogs-style needs, 0-100) */
+    this.care = options.care ?? {
+      hunger: 85 + Math.random() * 15,
+      clean: 85 + Math.random() * 15,
+      mood: 85 + Math.random() * 15
+    };
+
+    this.favorite = options.favorite ?? false;
+    this.zeroMoodDays = options.zeroMoodDays ?? 0;
+    this.runawayWarned = false;
+
     this.state = "walk";
     this.stateTimer = this.randomWalkTime();
     this.frameIndex = 0;
@@ -62,8 +73,15 @@ export class Dog {
     this.sprite.setInteractive({ useHandCursor: true });
     this.sprite.dogRef = this;
 
+    /* "!" bubble when the dog needs attention */
+    this.warnBubble = scene.add.image(x, y - 36, "ui-warn");
+    this.warnBubble.setOrigin(0.5, 1);
+    this.warnBubble.setDepth(51);
+    this.warnBubble.setVisible(false);
+
     container.add(this.selectionRing);
     container.add(this.sprite);
+    container.add(this.warnBubble);
 
     if (options.puppy) {
       /* Welpe wächst in zwei Stufen heran */
@@ -108,6 +126,54 @@ export class Dog {
     }
   }
 
+  /*
+  Needs decay; dt is in in-game DAYS.
+  A sad dog whose mood stays at zero long enough
+  will run away (handled by the scene).
+  */
+  tickCare(dtDays) {
+    const c = this.care;
+
+    c.hunger = Math.max(0, c.hunger - 55 * dtDays);
+    c.clean = Math.max(0, c.clean - 30 * dtDays);
+
+    const strain =
+      1 + (c.hunger < 30 ? 1 : 0) + (c.clean < 30 ? 1 : 0);
+
+    if (c.hunger > 70 && c.clean > 70) {
+      c.mood = Math.min(100, c.mood + 14 * dtDays);
+    } else {
+      c.mood = Math.max(0, c.mood - 38 * dtDays * strain);
+    }
+
+    if (c.mood <= 0) {
+      this.zeroMoodDays += dtDays;
+    } else {
+      this.zeroMoodDays = 0;
+      this.runawayWarned = false;
+    }
+
+    this.warnBubble.setVisible(this.needsAttention());
+  }
+
+  needsAttention() {
+    const c = this.care;
+
+    return c.hunger < 25 || c.clean < 25 || c.mood < 20;
+  }
+
+  feed() {
+    this.care.hunger = 100;
+    this.care.mood = Math.min(100, this.care.mood + 12);
+    this.warnBubble.setVisible(this.needsAttention());
+  }
+
+  wash() {
+    this.care.clean = 100;
+    this.care.mood = Math.min(100, this.care.mood + 12);
+    this.warnBubble.setVisible(this.needsAttention());
+  }
+
   update(delta) {
     this.stateTimer -= delta;
 
@@ -115,7 +181,11 @@ export class Dog {
       if (this.state === "walk") {
         this.enterState(Math.random() < 0.3 ? "lie" : "sit");
       } else {
-        this.enterState("walk");
+        /* sad dogs rest more instead of playing */
+        const restAgain =
+          this.care.mood < 35 && Math.random() < 0.6;
+
+        this.enterState(restAgain ? "lie" : "walk");
       }
     }
 
@@ -161,5 +231,15 @@ export class Dog {
   syncRing() {
     this.selectionRing.x = this.sprite.x;
     this.selectionRing.y = this.sprite.y - 2;
+    this.warnBubble.x = this.sprite.x + 10;
+    this.warnBubble.y =
+      this.sprite.y - 34 - Math.sin(this.scene.time.now / 180) * 2;
+  }
+
+  destroy() {
+    this.sprite?.destroy();
+    this.selectionRing?.destroy();
+    this.warnBubble?.destroy();
+    this.sprite = null;
   }
 }
