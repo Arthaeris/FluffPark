@@ -22,8 +22,8 @@ while worldRenderer.js paints the pretty picture.
 */
 
 export const WORLD = {
-  width: 224,
-  height: 320,
+  width: 160,
+  height: 352,
   tileSize: 16
 };
 
@@ -179,30 +179,44 @@ function scatterTiles(x, y, width, height, tileType, density, seed) {
 
 const T = TILE_TYPES;
 
-/* ---------- zone bases (top of map = north) */
+/*
+Portrait layout, sized for a phone screen
+(160 x 352 tiles ~ 9:19.8).
 
-paintRect(0, 0, 224, 6, T.RIDGE);                 // north ridge
-paintRect(0, 6, 224, 38, T.GRASS_MUTED);          // next town ground
-paintRect(0, 44, 224, 28, T.GRASS);               // advanced facilities
-paintRect(0, 72, 224, 12, T.DEEP_FOREST);         // old gate belt
-paintRect(0, 84, 224, 106, T.FOREST_GRASS);       // wild forest
-paintRect(0, 190, 224, 48, T.PARK_GRASS);         // pet park
-paintRect(0, 238, 224, 12, T.GRASS);              // park -> town
-paintRect(0, 250, 224, 32, T.GRASS);              // facilities row
-paintRect(0, 282, 224, 14, T.ROAD);               // main street
-paintRect(0, 296, 224, 24, T.RES_GRASS);          // residential
+y   0-  6  north ridge
+y   6- 44  NEXT TOWN (locked)
+y  44- 78  ADVANCED FACILITIES (locked)
+y  78- 92  OLD GATE forest belt
+y  92-210  WILD FOREST   (customizable, grid)
+y 210-268  PET PARK      (customizable, grid)
+y 268-278  park -> town transition
+y 278-314  FACILITIES (two shop rows + plaza)
+y 314-330  MAIN STREET
+y 330-352  RESIDENTIAL + south hedge
+*/
+
+paintRect(0, 0, 160, 6, T.RIDGE);
+paintRect(0, 6, 160, 38, T.GRASS_MUTED);
+paintRect(0, 44, 160, 34, T.GRASS);
+paintRect(0, 78, 160, 14, T.DEEP_FOREST);
+paintRect(0, 92, 160, 118, T.FOREST_GRASS);
+paintRect(0, 210, 160, 58, T.PARK_GRASS);
+paintRect(0, 268, 160, 10, T.GRASS);
+paintRect(0, 278, 160, 36, T.GRASS);
+paintRect(0, 314, 160, 16, T.ROAD);
+paintRect(0, 330, 160, 22, T.RES_GRASS);
 
 /* ---------- map frame (west/east edges) */
 
-paintRect(0, 0, 8, 44, T.RIDGE);
-paintRect(216, 0, 8, 44, T.RIDGE);
-paintRect(0, 44, 8, 206, T.DEEP_FOREST);
-paintRect(216, 44, 8, 206, T.DEEP_FOREST);
+paintRect(0, 0, 6, 48, T.RIDGE);
+paintRect(154, 0, 6, 48, T.RIDGE);
+paintRect(0, 48, 6, 220, T.DEEP_FOREST);
+paintRect(154, 48, 6, 220, T.DEEP_FOREST);
 
 /* ---------- wild forest: river with gentle bends */
 
-for (let x = 8; x < 216; x++) {
-  const center = 134 + Math.round(3 * Math.sin(x / 14));
+for (let x = 6; x < 154; x++) {
+  const center = 150 + Math.round(3 * Math.sin(x / 12));
 
   for (let y = center - 2; y <= center + 2; y++) {
     worldMap[y][x] = T.WATER;
@@ -211,10 +225,10 @@ for (let x = 8; x < 216; x++) {
 
 /* ---------- park pond (ellipse) */
 
-for (let y = 198; y <= 216; y++) {
-  for (let x = 150; x <= 172; x++) {
-    const dx = (x - 161) / 11;
-    const dy = (y - 207) / 9;
+for (let y = 214; y <= 234; y++) {
+  for (let x = 118; x <= 146; x++) {
+    const dx = (x - 132) / 14;
+    const dy = (y - 224) / 10;
 
     if (dx * dx + dy * dy <= 1) {
       worldMap[y][x] = T.WATER;
@@ -222,44 +236,42 @@ for (let y = 198; y <= 216; y++) {
   }
 }
 
-/* ---------- main path: gate down to town plaza */
+/* ---------- main path: next town road down to the plaza */
 
-for (let y = 40; y < 250; y++) {
-  for (let x = 110; x <= 113; x++) {
+for (let y = 42; y < 280; y++) {
+  for (let x = 77; x <= 80; x++) {
     worldMap[y][x] =
       worldMap[y][x] === T.WATER ? T.BRIDGE : T.PATH;
   }
 }
 
 /* bridge planks a bit wider than the path */
-for (let y = 128; y <= 141; y++) {
-  for (const x of [109, 114]) {
+for (let y = 144; y <= 157; y++) {
+  for (const x of [76, 81]) {
     if (worldMap[y][x] === T.WATER) {
       worldMap[y][x] = T.BRIDGE;
     }
   }
 }
 
-/* park cross path */
-paintRect(20, 230, 184, 3, T.PATH);
-
-/* small plaza pad where the path meets town */
-paintRect(100, 240, 24, 10, T.PLAZA);
+/* park cross path + plaza pad */
+paintRect(14, 254, 132, 3, T.PATH);
+paintRect(68, 268, 24, 10, T.PLAZA);
 
 /* ---------- forest decor */
 
-scatterTiles(8, 84, 208, 106, T.TREE, 0.11, 101);
-scatterTiles(8, 84, 208, 106, T.BUSH, 0.06, 202);
-scatterTiles(8, 84, 208, 106, T.ROCK, 0.02, 303);
-scatterTiles(8, 84, 208, 106, T.FLOWERS, 0.02, 404);
+scatterTiles(6, 92, 148, 118, T.TREE, 0.11, 101);
+scatterTiles(6, 92, 148, 118, T.BUSH, 0.06, 202);
+scatterTiles(6, 92, 148, 118, T.ROCK, 0.02, 303);
+scatterTiles(6, 92, 148, 118, T.FLOWERS, 0.02, 404);
 
 /* denser tree walls near the forest frame */
-scatterTiles(8, 84, 10, 106, T.TREE, 0.35, 505);
-scatterTiles(206, 84, 10, 106, T.TREE, 0.35, 606);
+scatterTiles(6, 92, 10, 118, T.TREE, 0.35, 505);
+scatterTiles(144, 92, 10, 118, T.TREE, 0.35, 606);
 
 /* clear a breathing space around the main path */
-for (let y = 84; y < 190; y++) {
-  for (let x = 107; x <= 116; x++) {
+for (let y = 92; y < 210; y++) {
+  for (let x = 74; x <= 83; x++) {
     if (worldMap[y][x] === T.TREE || worldMap[y][x] === T.ROCK) {
       worldMap[y][x] = T.FOREST_GRASS;
     }
@@ -268,21 +280,21 @@ for (let y = 84; y < 190; y++) {
 
 /* ---------- park decor */
 
-paintRect(70, 202, 78, 26, T.STARTER_PARK);       // starter lawn
-scatterTiles(10, 191, 204, 46, T.FLOWERS, 0.035, 707);
-scatterTiles(10, 191, 204, 46, T.TREE, 0.015, 808);
-scatterTiles(10, 191, 204, 46, T.BUSH, 0.02, 909);
+paintRect(40, 224, 76, 28, T.STARTER_PARK);
+scatterTiles(8, 211, 144, 56, T.FLOWERS, 0.035, 707);
+scatterTiles(8, 211, 144, 56, T.TREE, 0.015, 808);
+scatterTiles(8, 211, 144, 56, T.BUSH, 0.02, 909);
 
 /* repaint the main path across the starter lawn */
-for (let y = 202; y < 228; y++) {
-  for (let x = 110; x <= 113; x++) {
+for (let y = 224; y < 252; y++) {
+  for (let x = 77; x <= 80; x++) {
     worldMap[y][x] = T.PATH;
   }
 }
 
 /* keep the starter lawn clear */
-for (let y = 202; y < 228; y++) {
-  for (let x = 70; x < 148; x++) {
+for (let y = 224; y < 252; y++) {
+  for (let x = 40; x < 116; x++) {
     if (
       worldMap[y][x] === T.TREE ||
       worldMap[y][x] === T.BUSH ||
@@ -293,30 +305,32 @@ for (let y = 202; y < 228; y++) {
   }
 }
 
-/* ---------- facilities strip */
+/* ---------- facilities: two shop rows around the plaza */
 
-paintRect(0, 250, 224, 2, T.SIDEWALK);
-paintRect(96, 252, 32, 28, T.PLAZA);              // town plaza
-paintRect(0, 278, 224, 2, T.SIDEWALK);
+paintRect(0, 276, 160, 2, T.SIDEWALK);
+paintRect(62, 278, 36, 36, T.PLAZA);
+paintRect(0, 312, 160, 2, T.SIDEWALK);
 
 /* ---------- main street details */
 
-paintRect(0, 282, 224, 2, T.SIDEWALK);
-paintRect(0, 294, 224, 2, T.SIDEWALK);
+paintRect(0, 314, 160, 2, T.SIDEWALK);
+paintRect(0, 328, 160, 2, T.SIDEWALK);
 
 /* ---------- residential decor */
 
-scatterTiles(8, 296, 208, 20, T.FLOWERS, 0.03, 111);
-scatterTiles(8, 296, 208, 20, T.TREE, 0.012, 222);
-paintRect(0, 314, 224, 6, T.GRASS);
-scatterTiles(0, 314, 224, 4, T.BUSH, 0.25, 333);
+scatterTiles(6, 330, 148, 18, T.FLOWERS, 0.03, 111);
+scatterTiles(6, 330, 148, 18, T.TREE, 0.012, 222);
+paintRect(0, 348, 160, 4, T.GRASS);
+scatterTiles(0, 348, 160, 3, T.BUSH, 0.25, 333);
 
-scatterTiles(10, 45, 204, 26, T.TREE, 0.018, 555);
+/* ---------- advanced facilities decor */
+
+scatterTiles(8, 46, 144, 30, T.TREE, 0.018, 555);
 
 /* ---------- next town decor (locked, muted) */
 
-scatterTiles(10, 8, 204, 34, T.TREE, 0.03, 444);
-paintRect(0, 36, 224, 4, T.ROAD);
+scatterTiles(8, 8, 144, 34, T.TREE, 0.03, 444);
+paintRect(0, 38, 160, 4, T.ROAD);
 
 /*
 ==================================================
@@ -332,36 +346,37 @@ style keys map to BUILDING_STYLES in the renderer.
 
 export const BUILDINGS = [
   /* next town (locked) */
-  { x: 24,  y: 12, w: 24, h: 12, type: T.TOWN_BUILDING, style: "town", locked: true },
-  { x: 58,  y: 16, w: 20, h: 10, type: T.TOWN_BUILDING, style: "town", locked: true },
-  { x: 92,  y: 12, w: 28, h: 12, type: T.TOWN_BUILDING, style: "town", locked: true },
-  { x: 132, y: 16, w: 20, h: 10, type: T.TOWN_BUILDING, style: "town", locked: true },
-  { x: 164, y: 12, w: 26, h: 12, type: T.TOWN_BUILDING, style: "town", locked: true },
+  { x: 10,  y: 12, w: 22, h: 14, type: T.TOWN_BUILDING, style: "town", locked: true },
+  { x: 38,  y: 16, w: 20, h: 12, type: T.TOWN_BUILDING, style: "town", locked: true },
+  { x: 64,  y: 10, w: 32, h: 16, type: T.TOWN_BUILDING, style: "town", locked: true },
+  { x: 102, y: 16, w: 20, h: 12, type: T.TOWN_BUILDING, style: "town", locked: true },
+  { x: 128, y: 12, w: 22, h: 14, type: T.TOWN_BUILDING, style: "town", locked: true },
 
   /* advanced facilities (locked for now) */
-  { x: 18,  y: 46, w: 48, h: 16, type: T.ARENA,         style: "arena",    locked: true },
-  { x: 80,  y: 48, w: 40, h: 14, type: T.HOSPITAL,      style: "hospital", locked: true },
-  { x: 134, y: 48, w: 34, h: 14, type: T.ELITE_TRAINER, style: "trainer",  locked: true },
-  { x: 182, y: 48, w: 26, h: 14, type: T.LOCKED_LOT,    style: "locked",   locked: true },
+  { x: 8,   y: 50, w: 44, h: 18, type: T.ARENA,         style: "arena",    locked: true },
+  { x: 58,  y: 52, w: 14, h: 14, type: T.LOCKED_LOT,    style: "locked",   locked: true },
+  { x: 86,  y: 52, w: 34, h: 15, type: T.HOSPITAL,      style: "hospital", locked: true },
+  { x: 126, y: 51, w: 26, h: 16, type: T.ELITE_TRAINER, style: "trainer",  locked: true },
 
-  /* facilities row */
-  { x: 8,   y: 256, w: 19, h: 16, type: T.PET_SHOP,     style: "shopWarm" },
-  { x: 30,  y: 256, w: 19, h: 16, type: T.VET,          style: "vet" },
-  { x: 52,  y: 256, w: 19, h: 16, type: T.GROOMER,      style: "shopPink" },
-  { x: 74,  y: 256, w: 19, h: 16, type: T.BREEDER,      style: "shopBrown" },
-  { x: 132, y: 256, w: 19, h: 16, type: T.TRAINER,      style: "trainer" },
-  { x: 154, y: 256, w: 19, h: 16, type: T.PET_HOTEL,    style: "hotel" },
-  { x: 176, y: 256, w: 18, h: 16, type: T.DOG_WALKER,   style: "shopBlue" },
-  { x: 197, y: 256, w: 19, h: 16, type: T.PHOTO_STUDIO, style: "shopPurple" },
+  /* facilities: row A (north of plaza center) */
+  { x: 8,   y: 280, w: 22, h: 13, type: T.PET_SHOP,     style: "shopWarm" },
+  { x: 34,  y: 280, w: 22, h: 13, type: T.VET,          style: "vet" },
+  { x: 104, y: 280, w: 22, h: 13, type: T.GROOMER,      style: "shopPink" },
+  { x: 130, y: 280, w: 22, h: 13, type: T.BREEDER,      style: "shopBrown" },
+
+  /* facilities: row B */
+  { x: 8,   y: 297, w: 22, h: 13, type: T.TRAINER,      style: "trainer" },
+  { x: 34,  y: 297, w: 22, h: 13, type: T.PET_HOTEL,    style: "hotel" },
+  { x: 104, y: 297, w: 22, h: 13, type: T.DOG_WALKER,   style: "shopBlue" },
+  { x: 130, y: 297, w: 22, h: 13, type: T.PHOTO_STUDIO, style: "shopPurple" },
 
   /* residential */
-  { x: 16,  y: 298, w: 24, h: 13, type: T.PLAYER_HOME,  style: "home" },
-  { x: 50,  y: 300, w: 16, h: 11, type: T.HOUSE,        style: "house1" },
-  { x: 74,  y: 300, w: 16, h: 11, type: T.HOUSE,        style: "house2" },
-  { x: 98,  y: 300, w: 16, h: 11, type: T.HOUSE,        style: "house3" },
-  { x: 122, y: 300, w: 16, h: 11, type: T.HOUSE,        style: "house1" },
-  { x: 148, y: 298, w: 28, h: 13, type: T.APARTMENTS,   style: "apartments" },
-  { x: 184, y: 298, w: 28, h: 13, type: T.APARTMENTS,   style: "apartments" }
+  { x: 8,   y: 332, w: 22, h: 12, type: T.PLAYER_HOME,  style: "home" },
+  { x: 36,  y: 334, w: 14, h: 10, type: T.HOUSE,        style: "house1" },
+  { x: 56,  y: 334, w: 14, h: 10, type: T.HOUSE,        style: "house2" },
+  { x: 80,  y: 332, w: 26, h: 12, type: T.APARTMENTS,   style: "apartments" },
+  { x: 112, y: 334, w: 14, h: 10, type: T.HOUSE,        style: "house3" },
+  { x: 132, y: 334, w: 14, h: 10, type: T.HOUSE,        style: "house1" }
 ];
 
 for (const b of BUILDINGS) {
@@ -379,9 +394,21 @@ customizable zones: Wild Forest and Pet Park.
 */
 
 export const GRID_AREAS = [
-  { x: 8, y: 84, w: 208, h: 106 },   // wild forest
-  { x: 8, y: 190, w: 208, h: 48 }    // pet park
+  { x: 6, y: 92, w: 148, h: 118 },   // wild forest
+  { x: 6, y: 210, w: 148, h: 58 }    // pet park
 ];
+
+/*
+==================================================
+POINTS OF INTEREST (for the renderer)
+==================================================
+*/
+
+export const POI = {
+  fountain: { x: 80, y: 296 },
+  mainStreet: { y: 314, height: 16, crosswalkX0: 74, crosswalkX1: 86 },
+  nextTownRoadY: 38
+};
 
 /*
 ==================================================
@@ -390,32 +417,32 @@ MAP LABELS (all English)
 */
 
 export const MAP_LABELS = [
-  { text: "NEXT TOWN ???", x: 112, y: 30 },
+  { text: "NEXT TOWN ???", x: 80, y: 32 },
 
-  { text: "COMPETITION ARENA", x: 42, y: 66 },
-  { text: "ANIMAL HOSPITAL", x: 100, y: 66 },
-  { text: "ELITE TRAINER", x: 151, y: 66 },
-  { text: "???", x: 195, y: 66 },
+  { text: "COMPETITION ARENA", x: 30, y: 71 },
+  { text: "???", x: 65, y: 69 },
+  { text: "ANIMAL HOSPITAL", x: 103, y: 70 },
+  { text: "ELITE TRAINER", x: 139, y: 70 },
 
-  { text: "OLD GATE", x: 112, y: 78 },
-  { text: "WILD FOREST", x: 60, y: 100 },
+  { text: "OLD GATE", x: 80, y: 85 },
+  { text: "WILD FOREST", x: 40, y: 108 },
 
-  { text: "PET PARK", x: 40, y: 195 },
-  { text: "STARTER PARK", x: 109, y: 214 },
+  { text: "PET PARK", x: 28, y: 215 },
+  { text: "STARTER PARK", x: 77, y: 236 },
 
-  { text: "PET SHOP", x: 17, y: 265 },
-  { text: "VET", x: 39, y: 265 },
-  { text: "GROOMER", x: 61, y: 265 },
-  { text: "BREEDER", x: 83, y: 265 },
-  { text: "TOWN PLAZA", x: 112, y: 251 },
-  { text: "TRAINER", x: 141, y: 265 },
-  { text: "PET HOTEL", x: 163, y: 265 },
-  { text: "DOG WALKER", x: 185, y: 265 },
-  { text: "PHOTO STUDIO", x: 206, y: 265 },
+  { text: "PET SHOP", x: 19, y: 295 },
+  { text: "VET", x: 45, y: 295 },
+  { text: "GROOMER", x: 115, y: 295 },
+  { text: "BREEDER", x: 141, y: 295 },
+  { text: "TOWN PLAZA", x: 80, y: 280 },
+  { text: "TRAINER", x: 19, y: 312 },
+  { text: "PET HOTEL", x: 45, y: 312 },
+  { text: "DOG WALKER", x: 115, y: 312 },
+  { text: "PHOTO STUDIO", x: 141, y: 312 },
 
-  { text: "MAIN STREET", x: 112, y: 288 },
-  { text: "RESIDENTIAL", x: 112, y: 316 },
-  { text: "PLAYER HOME", x: 28, y: 313 }
+  { text: "MAIN STREET", x: 80, y: 321 },
+  { text: "RESIDENTIAL", x: 80, y: 349 },
+  { text: "PLAYER HOME", x: 19, y: 346 }
 ];
 
 /*
