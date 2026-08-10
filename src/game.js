@@ -11,24 +11,42 @@ import {
   breed,
   describe,
   rarityTier,
+  phenotype,
+  coloration,
   RARITY_TIERS,
   RARITY_COLORS,
   colorationLabel
 } from "./genetics.js";
 
 import { Dog } from "./dog.js";
+import { NpcSpawner, randomAppearance } from "./npc.js";
+import { ensureDogTextures } from "./spriteCompositor.js";
+import { sfx, unlockAudio, setMuted, isMuted } from "./audio.js";
+import { loadGame, makeSaver } from "./save.js";
+import { randomNpcName } from "./names.js";
 
 import {
   createHud,
   createBreedButton,
   createCloseButton,
+  createIconButton,
+  ensureWarnTexture,
   DogCard,
+  KennelBook,
   Toast
 } from "./ui.js";
 
 const MAX_SCALE = 3;
 
 const STARTER_DOG_COUNT = 6;
+
+/* one in-game day in real milliseconds */
+const DAY_MS = 180000;
+
+/* runaway thresholds (in in-game days at zero mood) */
+const RUNAWAY_WARN_DAYS = 0.4;
+const RUNAWAY_DAYS = 1.2;
+const SHELTER_TRAVEL_DAYS = 2;
 
 /* Starter Park roaming area (tile coordinates) */
 const PARK_BOUNDS_TILES = {
@@ -67,6 +85,22 @@ class WorldScene extends Phaser.Scene {
 
     this.dogs = [];
     this.selectedDogs = [];
+
+    /* community & economy */
+    this.away = [];          // ran away / waiting in the shelter
+    this.coins = 100;
+    this.clockMs = 0;
+    this.nextDogId = 1;
+    this.regulars = [];
+    this.npcSpawner = null;
+    this.kennelBook = null;
+    this.saver = null;
+    this.lastTile = null;
+    this.lastDayShown = -1;
+  }
+
+  currentDay() {
+    return 1 + Math.floor(this.clockMs / DAY_MS);
   }
 
   create() {
@@ -75,9 +109,67 @@ class WorldScene extends Phaser.Scene {
 
     this.worldContainer = this.add.container(0, 0);
 
+    ensureWarnTexture(this);
+    this.createFxTextures();
+
     this.drawWorld();
     this.drawMapLabels();
+
+    /* load save BEFORE spawning anything */
+    this.savedData = loadGame();
+
+    if (this.savedData) {
+      this.coins = this.savedData.coins ?? 100;
+      this.clockMs = this.savedData.clockMs ?? 0;
+      this.nextDogId = this.savedData.nextDogId ?? 1;
+      this.away = this.savedData.away ?? [];
+      this.regulars = this.savedData.regulars ?? [];
+      setMuted(this.savedData.muted ?? false);
+    }
+
+    if (this.regulars.length === 0) {
+      for (let i = 0; i < 4; i++) {
+        this.regulars.push({
+          name: randomNpcName(),
+          appearance: randomAppearance(),
+          regular: true
+        });
+      }
+    }
+
     this.createDogs();
+
+    this.npcSpawner = new NpcSpawner(
+      this,
+      this.worldContainer,
+      this.regulars,
+      (x, y, amount) => this.collectCoin(x, y, amount)
+    );
+
+    /* audio unlock + autosave plumbing */
+    this.input.on("pointerdown", unlockAudio);
+
+    this.saver = makeSaver(() => this.collectSaveData());
+    this.time.addEvent({
+      delay: 15000,
+      loop: true,
+      callback: () => this.saver.flush()
+    });
+
+    window.addEventListener("beforeunload", () => {
+      this.saver.flush();
+    });
+
+    /* live refresh of care bars while a card is open */
+    this.time.addEvent({
+      delay: 3000,
+      loop: true,
+      callback: () => {
+        if (this.selectedDogs.length > 0 && !this.kennelBook?.isOpen) {
+          this.refreshSelectionUi();
+        }
+      }
+    });
 
     const startingScale = Math.max(this.getMinimumScale(), 1.1);
 
@@ -117,6 +209,69 @@ class WorldScene extends Phaser.Scene {
   update(time, delta) {
     for (const dog of this.dogs) {
       dog.update(delta);
+    }
+
+    if (this.npcSpawner) {
+      this.npcSpawner.update(delta);
+    }
+
+    /* day clock + care simulation */
+    this.clockMs += delta;
+
+    const dtDays = delta / DAY_MS;
+    const runaways = [];
+
+    for (const dog of this.dogs) {
+      dog.tickCare(dtDays);
+
+      if (
+        dog.zeroMoodDays > RUNAWAY_WARN_DAYS &&
+        !dog.runawayWarned
+      ) {
+        dog.runawayWarned = true;
+        sfx.warn();
+        this.toast.show(
+          "UNHAPPY DOG!",
+          [
+            `${dog.genome.name} is miserable and thinking`,
+            "about running away. Feed and wash them!"
+          ],
+          "#c9503c"
+        );
+      }
+
+      if (dog.zeroMoodDays > RUNAWAY_DAYS) {
+        runaways.push(dog);
+      }
+    }
+
+    for (const dog of runaways) {
+      this.dogRunsAway(dog);
+    }
+
+    /* shelter arrivals */
+    const day = this.currentDay();
+
+    for (const entry of this.away) {
+      if (entry.status === "away" && day >= entry.arriveDay) {
+        entry.status = "shelter";
+        sfx.ui();
+        this.toast.show(
+          "SHELTER NEWS",
+          [
+            `${entry.genome.name} was found and brought`,
+            "to the shelter. Pick them up! (Kennel Book)"
+          ],
+          "#4a7fb5"
+        );
+        this.saver.markDirty();
+      }
+    }
+
+    if (day !== this.lastDayShown) {
+      this.lastDayShown = day;
+      this.refreshHud();
+      this.saver.markDirty();
     }
   }
 
@@ -184,8 +339,19 @@ class WorldScene extends Phaser.Scene {
   }
 
   createDogs() {
-    for (let i = 0; i < STARTER_DOG_COUNT; i++) {
-      this.spawnDog(randomGenome(), {});
+    if (this.savedData?.dogs?.length) {
+      for (const saved of this.savedData.dogs) {
+        this.spawnDog(saved.genome, {
+          care: saved.care,
+          favorite: saved.favorite,
+          x: saved.x,
+          y: saved.y
+        });
+      }
+    } else {
+      for (let i = 0; i < STARTER_DOG_COUNT; i++) {
+        this.spawnDog(randomGenome(), {});
+      }
     }
 
     /* Hunde antippen = auswählen */
@@ -211,6 +377,12 @@ class WorldScene extends Phaser.Scene {
   }
 
   spawnDog(genome, options) {
+    if (!genome.id) {
+      genome.id = this.nextDogId++;
+    }
+
+    this.nextDogId = Math.max(this.nextDogId, genome.id + 1);
+
     const bounds = this.parkBoundsPixels();
 
     const dog = new Dog(
@@ -222,16 +394,222 @@ class WorldScene extends Phaser.Scene {
     );
 
     this.dogs.push(dog);
-
-    if (this.hud) {
-      this.hud.update({
-        dogs: this.dogs.length,
-        tile: "Touch a tile",
-        zoom: this.worldContainer.scaleX.toFixed(2)
-      });
-    }
+    this.refreshHud();
+    this.saver?.markDirty();
 
     return dog;
+  }
+
+  /*
+  ==================================================
+  CARE / RUNAWAY / SHELTER
+  ==================================================
+  */
+
+  dogRunsAway(dog) {
+    const index = this.selectedDogs.indexOf(dog);
+
+    if (index >= 0) {
+      this.selectedDogs.splice(index, 1);
+      this.refreshSelectionUi();
+    }
+
+    this.dogs = this.dogs.filter((d) => d !== dog);
+
+    this.away.push({
+      genome: dog.genome,
+      favorite: dog.favorite,
+      status: "away",
+      arriveDay: this.currentDay() + SHELTER_TRAVEL_DAYS
+    });
+
+    dog.destroy();
+
+    sfx.warn();
+    this.toast.show(
+      "DOG RAN AWAY!",
+      [
+        `${dog.genome.name} ran off into the forest ...`,
+        `They should turn up at the shelter in ${SHELTER_TRAVEL_DAYS} days.`
+      ],
+      "#c9503c"
+    );
+
+    this.refreshHud();
+    this.saver.markDirty();
+  }
+
+  pickupFromShelter(entry) {
+    this.away = this.away.filter((e) => e !== entry);
+
+    const dog = this.spawnDog(entry.genome, {
+      favorite: entry.favorite,
+      care: { hunger: 65, clean: 55, mood: 60 }
+    });
+
+    sfx.breed();
+    this.toast.show(
+      "WELCOME BACK!",
+      [`${dog.genome.name} is back in the park.`,
+       "Take better care of them this time!"]
+    );
+
+    this.panToWorld(dog.sprite.x, dog.sprite.y);
+    this.saver.markDirty();
+  }
+
+  /*
+  ==================================================
+  COINS & FX
+  ==================================================
+  */
+
+  createFxTextures() {
+    if (!this.textures.exists("fx-heart")) {
+      const c = document.createElement("canvas");
+      c.width = 12;
+      c.height = 12;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#e86a8a";
+      ctx.beginPath();
+      ctx.arc(3.5, 4, 3, 0, Math.PI * 2);
+      ctx.arc(8.5, 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0.8, 5.4);
+      ctx.lineTo(11.2, 5.4);
+      ctx.lineTo(6, 11.4);
+      ctx.closePath();
+      ctx.fill();
+      this.textures.addCanvas("fx-heart", c);
+    }
+
+    if (!this.textures.exists("fx-coin")) {
+      const c = document.createElement("canvas");
+      c.width = 12;
+      c.height = 12;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#a8741c";
+      ctx.beginPath();
+      ctx.arc(6, 6, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e8c153";
+      ctx.beginPath();
+      ctx.arc(6, 6, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#f6e2a0";
+      ctx.beginPath();
+      ctx.arc(4.5, 4.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      this.textures.addCanvas("fx-coin", c);
+    }
+  }
+
+  collectCoin(x, y, amount) {
+    this.coins += amount;
+    sfx.coin();
+
+    const coin = this.add.image(x, y - 20, "fx-coin");
+
+    coin.setDepth(60);
+    this.worldContainer.add(coin);
+
+    this.tweens.add({
+      targets: coin,
+      y: y - 50,
+      alpha: 0,
+      duration: 900,
+      ease: "Cubic.Out",
+      onComplete: () => coin.destroy()
+    });
+
+    this.refreshHud();
+    this.saver.markDirty();
+  }
+
+  spawnHearts(x, y) {
+    for (let i = 0; i < 6; i++) {
+      const heart = this.add.image(
+        x + Phaser.Math.Between(-24, 24),
+        y - Phaser.Math.Between(6, 24),
+        "fx-heart"
+      );
+
+      heart.setDepth(60);
+      this.worldContainer.add(heart);
+
+      this.tweens.add({
+        targets: heart,
+        y: heart.y - Phaser.Math.Between(28, 48),
+        alpha: 0,
+        duration: Phaser.Math.Between(700, 1200),
+        delay: i * 90,
+        ease: "Cubic.Out",
+        onComplete: () => heart.destroy()
+      });
+    }
+  }
+
+  /* smooth camera pan to a world point (clamped) */
+  panToWorld(worldX, worldY) {
+    const s = this.worldContainer.scaleX;
+
+    let tx = this.scale.width / 2 - worldX * s;
+    let ty = this.scale.height / 2 - worldY * s;
+
+    const scaledW = this.worldPixelWidth * s;
+    const scaledH = this.worldPixelHeight * s;
+
+    tx = Phaser.Math.Clamp(tx, this.scale.width - scaledW, 0);
+    ty = Phaser.Math.Clamp(ty, this.scale.height - scaledH, 0);
+
+    this.tweens.add({
+      targets: this.worldContainer,
+      x: tx,
+      y: ty,
+      duration: 650,
+      ease: "Cubic.Out"
+    });
+  }
+
+  /*
+  ==================================================
+  SAVE
+  ==================================================
+  */
+
+  collectSaveData() {
+    return {
+      coins: Math.floor(this.coins),
+      clockMs: Math.floor(this.clockMs),
+      nextDogId: this.nextDogId,
+      muted: isMuted(),
+      regulars: this.regulars,
+      away: this.away,
+      dogs: this.dogs.map((dog) => ({
+        genome: dog.genome,
+        care: dog.care,
+        favorite: dog.favorite,
+        x: Math.round(dog.sprite.x),
+        y: Math.round(dog.sprite.y)
+      }))
+    };
+  }
+
+  refreshHud() {
+    if (!this.hud) {
+      return;
+    }
+
+    this.hud.update({
+      dogs: this.dogs.length,
+      coins: Math.floor(this.coins),
+      day: this.currentDay(),
+      tile: this.lastTile?.tile ?? "Touch a tile",
+      zoom:
+        this.lastTile?.zoom ??
+        this.worldContainer.scaleX.toFixed(2)
+    });
   }
 
   toggleDogSelection(dog) {
@@ -240,6 +618,7 @@ class WorldScene extends Phaser.Scene {
     if (index >= 0) {
       this.selectedDogs.splice(index, 1);
       dog.setSelected(false);
+      sfx.deselect();
     } else {
       if (this.selectedDogs.length >= 2) {
         const removed = this.selectedDogs.shift();
@@ -248,6 +627,7 @@ class WorldScene extends Phaser.Scene {
 
       this.selectedDogs.push(dog);
       dog.setSelected(true);
+      sfx.select();
     }
 
     this.refreshSelectionUi();
@@ -262,11 +642,20 @@ class WorldScene extends Phaser.Scene {
 
     const puppyGenome = breed(parentA.genome, parentB.genome);
 
+    /* pedigree */
+    puppyGenome.parents = {
+      ids: [parentA.genome.id, parentB.genome.id],
+      names: [parentA.genome.name, parentB.genome.name]
+    };
+
     const puppy = this.spawnDog(puppyGenome, {
       puppy: true,
       x: (parentA.sprite.x + parentB.sprite.x) / 2,
       y: (parentA.sprite.y + parentB.sprite.y) / 2
     });
+
+    this.spawnHearts(puppy.sprite.x, puppy.sprite.y);
+    this.panToWorld(puppy.sprite.x, puppy.sprite.y);
 
     for (const dog of this.selectedDogs) {
       dog.setSelected(false);
@@ -296,6 +685,12 @@ class WorldScene extends Phaser.Scene {
       lines,
       tier > 0 ? RARITY_COLORS[tier] : undefined
     );
+
+    if (tier > 0) {
+      sfx.rare();
+    } else {
+      sfx.breed();
+    }
   }
 
   /*
@@ -306,8 +701,44 @@ class WorldScene extends Phaser.Scene {
 
   createInterface() {
     this.hud = createHud(this);
-    this.dogCard = new DogCard(this);
     this.toast = new Toast(this);
+
+    this.dogCard = new DogCard(this, (action) =>
+      this.onCardAction(action)
+    );
+
+    this.kennelBook = new KennelBook(this, {
+      getSitKey: (genome) => {
+        const pheno = phenotype(genome);
+        const col = coloration(genome);
+
+        return ensureDogTextures(this, pheno, col).sit;
+      },
+      onSelect: (entry) => {
+        const dog = this.dogs.find(
+          (d) => d.genome.id === entry.genome.id
+        );
+
+        if (dog) {
+          this.clearSelection();
+          this.toggleDogSelection(dog);
+          this.panToWorld(dog.sprite.x, dog.sprite.y);
+        }
+      },
+      onPickup: (entry) => this.pickupFromShelter(entry)
+    });
+
+    this.bookButton = createIconButton(this, "ui-btn-book", "book", () => {
+      sfx.book();
+      this.openKennelBook();
+    });
+
+    this.soundButton = createIconButton(this, "ui-btn-sound", "sound", () => {
+      setMuted(!isMuted());
+      this.soundButton.redrawIcon(!isMuted());
+      sfx.ui();
+      this.saver.markDirty();
+    });
 
     this.breedButton = createBreedButton(this, () => {
       this.breedSelected();
@@ -321,10 +752,14 @@ class WorldScene extends Phaser.Scene {
 
     this.closeButton.setVisible(false);
 
-    /* ESC also closes the card */
+    /* ESC closes the book or the card */
     if (this.input.keyboard) {
       this.input.keyboard.on("keydown-ESC", () => {
-        this.clearSelection();
+        if (this.kennelBook?.isOpen) {
+          this.kennelBook.close();
+        } else {
+          this.clearSelection();
+        }
       });
     }
 
@@ -365,6 +800,88 @@ class WorldScene extends Phaser.Scene {
         this.closeButton.y = corner.y + 4;
       }
     }
+
+    if (this.bookButton) {
+      this.bookButton.x = this.scale.width - 10;
+      this.bookButton.y = 10;
+    }
+
+    if (this.soundButton) {
+      this.soundButton.x = this.scale.width - 10;
+      this.soundButton.y = 10 + this.bookButton.displayHeight + 8;
+    }
+
+    if (this.kennelBook?.isOpen) {
+      this.kennelBook.layout();
+    }
+  }
+
+  openKennelBook() {
+    const entries = [];
+
+    for (const dog of this.dogs) {
+      entries.push({
+        genome: dog.genome,
+        favorite: dog.favorite,
+        status: "park"
+      });
+    }
+
+    for (const entry of this.away) {
+      entries.push({
+        genome: entry.genome,
+        favorite: entry.favorite,
+        status: entry.status,
+        arriveDay: entry.arriveDay
+      });
+    }
+
+    /* favorites first, then rarity */
+    entries.sort((a, b) => {
+      const fav = (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
+
+      if (fav !== 0) {
+        return fav;
+      }
+
+      return rarityTier(b.genome) - rarityTier(a.genome);
+    });
+
+    this.kennelBook.open(entries);
+  }
+
+  onCardAction(action) {
+    const dog = this.selectedDogs[action.index];
+
+    if (!dog) {
+      return;
+    }
+
+    if (action.type === "feed") {
+      dog.feed();
+      sfx.feed();
+      this.spawnHearts(dog.sprite.x, dog.sprite.y);
+    } else if (action.type === "wash") {
+      dog.wash();
+      sfx.wash();
+      this.spawnHearts(dog.sprite.x, dog.sprite.y);
+    } else if (action.type === "favorite") {
+      dog.favorite = !dog.favorite;
+      sfx.ui();
+    } else if (action.type === "rename") {
+      const name = window.prompt(
+        "New name:",
+        dog.genome.name
+      );
+
+      if (name && name.trim().length > 0) {
+        dog.genome.name = name.trim().slice(0, 12);
+        sfx.ui();
+      }
+    }
+
+    this.refreshSelectionUi();
+    this.saver.markDirty();
   }
 
   clearSelection() {
@@ -693,11 +1210,12 @@ class WorldScene extends Phaser.Scene {
 
     const tileType = getTileType(tileX, tileY);
 
-    this.hud.update({
-      dogs: this.dogs.length,
+    this.lastTile = {
       tile: tileType ?? "Out of Bounds",
       zoom: scale.toFixed(2)
-    });
+    };
+
+    this.refreshHud();
   }
 }
 
