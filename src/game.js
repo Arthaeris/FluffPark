@@ -20,10 +20,10 @@ const STARTER_DOG_COUNT = 6;
 
 /* Starter Park roaming area (tile coordinates) */
 const PARK_BOUNDS_TILES = {
-  minX: 74,
-  maxX: 144,
-  minY: 207,
-  maxY: 226
+  minX: 44,
+  maxX: 112,
+  minY: 228,
+  maxY: 250
 };
 
 class WorldScene extends Phaser.Scene {
@@ -71,8 +71,8 @@ class WorldScene extends Phaser.Scene {
     this.worldContainer.setScale(startingScale);
 
     /* start centered on the Pet Park */
-    const focusX = 112 * WORLD.tileSize;
-    const focusY = 218 * WORLD.tileSize;
+    const focusX = 80 * WORLD.tileSize;
+    const focusY = 238 * WORLD.tileSize;
 
     this.worldContainer.x =
       this.scale.width / 2 - focusX * startingScale;
