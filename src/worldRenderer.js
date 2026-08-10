@@ -95,6 +95,7 @@ const BUILDING_STYLES = {
   arena:      { wall: "#ead9be", roof: "#c27755", banner: true, icon: "star", detail: "vent" },
   hospital:   { wall: "#f5f2e9", roof: "#d97f74", icon: "cross", detail: "ac" },
   town:       { wall: "#d4ccbc", roof: "#a09a90", detail: "ac" },
+  shelter:    { wall: "#eef4ef", roof: "#7fb598", awning: ["#6ca887", "#f0f6f2"], icon: "paw", detail: "vent" },
   locked:     { wall: "#bcc0b3", roof: "#9aa08e", question: true }
 };
 
